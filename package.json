@@ -1,0 +1,17 @@
+{
+    "name": "block-service",
+    "version": "0.0.1",
+    "description": "Block storage service",
+    "main": "index.js",
+    "scripts": {
+        "start": "node src/index.js"
+    },
+    "keywords": [
+        "cyberway"
+    ],
+    "author": "golos.io",
+    "license": "GPL-3.0",
+    "dependencies": {
+        "gls-core-service": "^3.29.4"
+    }
+}
