@@ -1,25 +1,25 @@
 {
-    "name": "block-service",
-    "version": "0.0.1",
-    "description": "Block storage service",
-    "main": "index.js",
-    "scripts": {
-        "start": "node src/index.js",
-        "test": "eslint src/**/*.js"
-    },
-    "keywords": [
-        "cyberway"
-    ],
-    "author": "golos.io",
-    "license": "GPL-3.0",
-    "dependencies": {
-        "gls-core-service": "^3.29.4",
-        "ramda": "^0.26.1"
-    },
-    "devDependencies": {
-        "eslint": "^5.16.0",
-        "eslint-config-prettier": "^4.3.0",
-        "eslint-plugin-prettier": "^3.1.0",
-        "prettier": "^1.18.2"
-    }
+  "name": "block-service",
+  "version": "0.0.1",
+  "description": "Block storage service",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "eslint src/**/*.js"
+  },
+  "keywords": [
+    "cyberway"
+  ],
+  "author": "golos.io",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "gls-core-service": "^3.29.4",
+    "ramda": "^0.26.1"
+  },
+  "devDependencies": {
+    "eslint": "^5.16.0",
+    "eslint-config-prettier": "^4.3.0",
+    "eslint-plugin-prettier": "^3.1.0",
+    "prettier": "^1.18.2"
+  }
 }

@@ -22,7 +22,7 @@ class Blocks {
                 transactionsCount: 1,
             },
             {
-                sort: { blockNum: 1 },
+                sort: { blockNum: -1 },
                 limit,
                 lean: true,
             }

@@ -7,5 +7,13 @@
     "bracketSpacing": true,
     "jsxBracketSameLine": false,
     "tabWidth": 4,
-    "printWidth": 80
+    "printWidth": 80,
+    "overrides": [
+        {
+            "files": ["*.yml", "*.json"],
+            "options": {
+                "tabWidth": 2
+            }
+        }
+    ]
 }
