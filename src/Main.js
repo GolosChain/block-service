@@ -1,22 +1,16 @@
 const core = require('gls-core-service');
 const BasicMain = core.services.BasicMain;
 const env = require('./data/env');
+const Subscriber = require('./services/Subscriber');
 
 class Main extends BasicMain {
     constructor() {
         super(env);
-    }
 
-    async boot() {
-        //
-    }
+        this.startMongoBeforeBoot();
 
-    async start() {
-        console.log('started');
-    }
-
-    async stop() {
-        //
+        this._subscriber = new Subscriber();
+        this.addNested(this._subscriber);
     }
 }
 
