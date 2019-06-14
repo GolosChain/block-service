@@ -8,6 +8,10 @@ module.exports = MongoDB.makeModel(
             type: String,
             required: true,
         },
+        index: {
+            type: Number,
+            required: true,
+        },
         blockId: {
             type: String,
             required: true,
@@ -44,6 +48,7 @@ module.exports = MongoDB.makeModel(
             {
                 fields: {
                     blockNum: 1,
+                    index: 1,
                 },
             },
         ],

@@ -25,6 +25,10 @@ module.exports = MongoDB.makeModel(
                 type: String,
             },
         ],
+        transactionsCount: {
+            type: Number,
+            required: true,
+        },
     },
     {
         index: [

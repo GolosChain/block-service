@@ -1,6 +1,7 @@
 const core = require('gls-core-service');
 const { splitEvery } = require('ramda');
 const BasicService = core.services.Basic;
+const { Logger } = core.utils;
 const BlockSubscribe = core.services.BlockSubscribe;
 const metrics = core.utils.metrics;
 const BlockModel = require('../models/Block');
@@ -16,13 +17,17 @@ class Subscriber extends BasicService {
         this._subscriber = new BlockSubscribe({
             lastSequence: (meta && meta.lastProcessedSequence) || 0,
             lastTime: (meta && meta.lastProcessedTime) || null,
-            onlyIrreversible: true,
             includeExpiredTransactions: true,
         });
 
         await this._subscriber.start();
 
         this._subscriber.eachBlock(this._handleNewBlock.bind(this));
+
+        this._subscriber.on(
+            'irreversibleBlockNum',
+            this._setIrreversibleBlockNum.bind(this)
+        );
     }
 
     /**
@@ -37,9 +42,10 @@ class Subscriber extends BasicService {
                 parentId: block.parentId,
                 blockNum: block.blockNum,
                 blockTime: block.blockTime,
-                transactions: block.transactions.map(
+                transactionIds: block.transactions.map(
                     transaction => transaction.id
                 ),
+                transactionsCount: block.transactions.length,
             });
 
             await blockModel.save();
@@ -53,8 +59,9 @@ class Subscriber extends BasicService {
         }
 
         if (block.transactions.length) {
-            const transactions = block.transactions.map(trx => ({
+            const transactions = block.transactions.map((trx, index) => ({
                 ...trx,
+                index,
                 blockId: block.id,
                 blockNum: block.blockNum,
                 blockTime: block.blockTime,
@@ -92,9 +99,7 @@ class Subscriber extends BasicService {
         const chunks = splitEvery(100, transactions);
 
         for (const chunk of chunks) {
-            await TransactionModel.insertMany(chunk, {
-                ordered: false,
-            });
+            await TransactionModel.insertMany(chunk);
         }
 
         metrics.inc('saved_transactions_count', transactions.length);
@@ -114,6 +119,22 @@ class Subscriber extends BasicService {
 
                 throw err;
             }
+        }
+    }
+
+    async _setIrreversibleBlockNum(irreversibleBlockNum) {
+        try {
+            await ServiceMeta.updateOne(
+                {},
+                {
+                    $set: {
+                        irreversibleBlockNum,
+                    },
+                },
+                { upsert: true }
+            );
+        } catch (err) {
+            Logger.error('ServiceMeta saving failed:', err);
         }
     }
 }
