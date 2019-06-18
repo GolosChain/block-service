@@ -47,6 +47,10 @@ class Connector extends BasicConnector {
                             blockId: {
                                 type: 'string',
                             },
+                            status: {
+                                type: 'string',
+                                enum: ['all', 'executed', 'expired'],
+                            },
                             startTransactionId: {
                                 type: 'string',
                             },
@@ -60,6 +64,18 @@ class Connector extends BasicConnector {
                         required: ['transactionId'],
                         properties: {
                             transactionId: {
+                                type: 'string',
+                            },
+                        },
+                    },
+                },
+                findEntity: {
+                    handler: this._blocks.findEntity,
+                    scope: this._blocks,
+                    validation: {
+                        required: ['text'],
+                        properties: {
+                            text: {
                                 type: 'string',
                             },
                         },

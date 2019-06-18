@@ -19,7 +19,7 @@ class Blocks {
                 parentId: 1,
                 blockNum: 1,
                 blockTime: 1,
-                transactionsCount: 1,
+                counters: 1,
             },
             {
                 sort: { blockNum: -1 },
@@ -44,7 +44,7 @@ class Blocks {
                 parentId: 1,
                 blockNum: 1,
                 blockTime: 1,
-                transactionsCount: 1,
+                counters: 1,
             },
             {
                 lean: true,
@@ -61,10 +61,14 @@ class Blocks {
         return block;
     }
 
-    async getBlockTransactions({ blockId, startTransactionId, limit }) {
+    async getBlockTransactions({ blockId, status, startTransactionId, limit }) {
         const query = {
             blockId,
         };
+
+        if (status && status !== 'all') {
+            query.status = status;
+        }
 
         if (startTransactionId) {
             query.id = {
@@ -77,6 +81,7 @@ class Blocks {
             {
                 _id: 0,
                 id: 1,
+                index: 1,
                 status: 1,
                 stats: 1,
             },
@@ -136,6 +141,66 @@ class Blocks {
             blockId: block.id,
             blockNum: block.blockNum,
             blockTime: block.blockTime,
+        };
+    }
+
+    async findEntity({ text }) {
+        if (/^\d+$/.test(text)) {
+            const blockNum = parseInt(text, 10);
+
+            const block = await BlockModel.findOne(
+                { blockNum },
+                { _id: 0, id: 1, blockNum: 1, blockTime: 1 },
+                { lean: true }
+            );
+
+            if (block) {
+                return {
+                    type: 'block',
+                    data: block,
+                };
+            }
+        }
+
+        if (text.length === 64 && /^[a-f0-9]+$/.test(text)) {
+            const [block, transaction] = await Promise.all([
+                BlockModel.findOne(
+                    { id: text },
+                    { _id: 0, id: 1, blockNum: 1, blockTime: 1 },
+                    { lean: true }
+                ),
+                TransactionModel.findOne(
+                    { id: text },
+                    {
+                        _id: 0,
+                        id: 1,
+                        status: 1,
+                        blockId: 1,
+                        blockNum: 1,
+                        actionsCount: 1,
+                    },
+                    { lean: true }
+                ),
+            ]);
+
+            if (block) {
+                return {
+                    type: 'block',
+                    data: block,
+                };
+            }
+
+            if (transaction) {
+                return {
+                    type: 'transaction',
+                    data: transaction,
+                };
+            }
+        }
+
+        return {
+            type: null,
+            data: null,
         };
     }
 }

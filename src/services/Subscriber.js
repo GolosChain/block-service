@@ -37,6 +37,8 @@ class Subscriber extends BasicService {
      */
     async _handleNewBlock(block) {
         try {
+            const counters = this._calcBlockCounters(block);
+
             const blockModel = new BlockModel({
                 id: block.id,
                 parentId: block.parentId,
@@ -45,7 +47,7 @@ class Subscriber extends BasicService {
                 transactionIds: block.transactions.map(
                     transaction => transaction.id
                 ),
-                transactionsCount: block.transactions.length,
+                counters,
             });
 
             await blockModel.save();
@@ -65,6 +67,7 @@ class Subscriber extends BasicService {
                 blockId: block.id,
                 blockNum: block.blockNum,
                 blockTime: block.blockTime,
+                actionsCount: trx.actions.length,
             }));
 
             try {
@@ -136,6 +139,25 @@ class Subscriber extends BasicService {
         } catch (err) {
             Logger.error('ServiceMeta saving failed:', err);
         }
+    }
+
+    _calcBlockCounters(block) {
+        const stats = {
+            transactions: {
+                executed: 0,
+                expired: 0,
+                total: block.transactions.length,
+            },
+        };
+
+        const tStats = stats.transactions;
+
+        for (const transaction of block.transactions) {
+            tStats[transaction.status] = tStats[transaction.status] || 0;
+            tStats[transaction.status]++;
+        }
+
+        return stats;
     }
 }
 

@@ -27,9 +27,12 @@ module.exports = MongoDB.makeModel(
         actions: [
             {
                 type: Object,
-                required: true,
             },
         ],
+        actionsCount: {
+            type: Number,
+            required: true,
+        },
         stats: {
             type: Object,
             required: true,
