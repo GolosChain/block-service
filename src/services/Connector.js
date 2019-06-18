@@ -25,6 +25,18 @@ class Connector extends BasicConnector {
                         },
                     },
                 },
+                getBlock: {
+                    handler: this._blocks.getBlock,
+                    scope: this._blocks,
+                    validation: {
+                        required: ['blockId'],
+                        properties: {
+                            blockId: {
+                                type: 'string',
+                            },
+                        },
+                    },
+                },
                 getBlockTransactions: {
                     handler: this._blocks.getBlockTransactions,
                     scope: this._blocks,

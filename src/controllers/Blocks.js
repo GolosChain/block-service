@@ -33,6 +33,34 @@ class Blocks {
         };
     }
 
+    async getBlock({ blockId }) {
+        const block = await BlockModel.findOne(
+            {
+                id: blockId,
+            },
+            {
+                _id: 0,
+                id: 1,
+                parentId: 1,
+                blockNum: 1,
+                blockTime: 1,
+                transactionsCount: 1,
+            },
+            {
+                lean: true,
+            }
+        );
+
+        if (!block) {
+            throw {
+                code: 404,
+                message: 'Not found',
+            };
+        }
+
+        return block;
+    }
+
     async getBlockTransactions({ blockId, startTransactionId, limit }) {
         const query = {
             blockId,
@@ -51,7 +79,6 @@ class Blocks {
                 id: 1,
                 status: 1,
                 stats: 1,
-                actions: 1,
             },
             {
                 sort: {
@@ -68,7 +95,7 @@ class Blocks {
     }
 
     async getTransaction({ transactionId }) {
-        const transaction = await TransactionModel.find(
+        const transaction = await TransactionModel.findOne(
             {
                 id: transactionId,
             },
@@ -77,6 +104,7 @@ class Blocks {
                 id: 1,
                 status: 1,
                 stats: 1,
+                blockId: 1,
                 actions: 1,
             },
             {
@@ -84,8 +112,30 @@ class Blocks {
             }
         );
 
+        if (!transaction) {
+            throw {
+                code: 404,
+                message: 'Not found',
+            };
+        }
+
+        const block = await BlockModel.findOne(
+            {
+                id: transaction.blockId,
+            },
+            {
+                _id: 0,
+                id: 1,
+                blockNum: 1,
+                blockTime: 1,
+            }
+        );
+
         return {
-            transaction,
+            ...transaction,
+            blockId: block.id,
+            blockNum: block.blockNum,
+            blockTime: block.blockTime,
         };
     }
 }
