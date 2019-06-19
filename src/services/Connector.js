@@ -51,8 +51,8 @@ class Connector extends BasicConnector {
                                 type: 'string',
                                 enum: ['all', 'executed', 'expired'],
                             },
-                            startTransactionId: {
-                                type: 'string',
+                            fromIndex: {
+                                type: 'number',
                             },
                         },
                     },

@@ -61,7 +61,7 @@ class Blocks {
         return block;
     }
 
-    async getBlockTransactions({ blockId, status, startTransactionId, limit }) {
+    async getBlockTransactions({ blockId, status, fromIndex, limit }) {
         const query = {
             blockId,
         };
@@ -70,9 +70,9 @@ class Blocks {
             query.status = status;
         }
 
-        if (startTransactionId) {
-            query.id = {
-                $gte: startTransactionId,
+        if (fromIndex) {
+            query.index = {
+                $gt: fromIndex,
             };
         }
 

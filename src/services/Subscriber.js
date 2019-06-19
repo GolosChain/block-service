@@ -80,6 +80,8 @@ class Subscriber extends BasicService {
                     throw err;
                 }
             }
+
+            await this._extractAndSaveUsers(block);
         }
 
         await ServiceMeta.updateOne(
@@ -158,6 +160,47 @@ class Subscriber extends BasicService {
         }
 
         return stats;
+    }
+
+    async _extractAndSaveUsers(block) {
+        const mentions = [];
+
+        for (const transaction of block.transactions) {
+            for (let i = 0; i < transaction.actions.length; i++) {
+                const action = transaction.actions[i];
+
+                if (!action.args) {
+                    continue;
+                }
+
+                const method = `${action.code}->${action.action}`;
+
+                const { args } = action;
+
+                const base = {
+                    blockId: block.id,
+                    transactionId: transaction.id,
+                    actionIndex: i,
+                };
+
+                switch (method) {
+                    case 'cyber->newaccount':
+                        mentions.push(
+                            {
+                                ...base,
+                                userId: args.creator,
+                            },
+                            {
+                                ...base,
+                                userId: args.name,
+                            }
+                        );
+                        break;
+                    default:
+                        Logger.info(`Unhandled bc method ${method}:`, action);
+                }
+            }
+        }
     }
 }
 
