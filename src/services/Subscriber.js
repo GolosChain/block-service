@@ -163,6 +163,9 @@ class Subscriber extends BasicService {
     }
 
     async _extractAndSaveUsers(block) {
+        // Not ready yet
+        return;
+
         const mentions = [];
 
         for (const transaction of block.transactions) {
