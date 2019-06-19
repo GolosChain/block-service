@@ -1,0 +1,37 @@
+version: '2.1'
+services:
+  blocks-mongo:
+    container_name: blocks-mongo
+    image: mongo
+    restart: always
+    healthcheck:
+      test: mongo --eval 'db.getCollectionNames()'
+      interval: 10s
+      timeout: 2s
+      retries: 10
+    volumes:
+      - $GLS_MONGO_DB_PATH:/data/db
+    ports:
+      - 127.0.0.1:27017:27017
+    networks:
+      - services-tier
+
+  blocks-node:
+    container_name: blocks-node
+    restart: always
+    depends_on:
+      blocks-mongo:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - services-tier
+    ports:
+      - $GLS_CONNECTOR_HOST:$GLS_CONNECTOR_PORT:$GLS_CONNECTOR_PORT
+      - $GLS_METRICS_HOST:$GLS_METRICS_PORT:$GLS_METRICS_PORT
+    env_file:
+      - .env
+
+networks:
+  services-tier:
