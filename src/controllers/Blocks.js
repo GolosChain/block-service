@@ -1,3 +1,5 @@
+const env = require('../data/env');
+
 const BlockModel = require('../models/Block');
 const TransactionModel = require('../models/Transaction');
 
@@ -201,6 +203,16 @@ class Blocks {
         return {
             type: null,
             data: null,
+        };
+    }
+
+    async getBlockChainInfo() {
+        const match = env.GLS_BLOCKCHAIN_BROADCASTER_CONNECT.match(
+            /@([^@:]+):\d+$/
+        );
+
+        return {
+            blockchainHost: match ? match[1] : null,
         };
     }
 }

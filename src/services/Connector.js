@@ -81,6 +81,11 @@ class Connector extends BasicConnector {
                         },
                     },
                 },
+                getBlockChainInfo: {
+                    handler: this._blocks.getBlockChainInfo,
+                    scope: this._blocks,
+                    validation: {},
+                },
             },
             serverDefaults: {
                 parents: {
