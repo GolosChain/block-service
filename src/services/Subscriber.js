@@ -17,7 +17,7 @@ class Subscriber extends BasicService {
         this._subscriber = new BlockSubscribe({
             lastSequence: (meta && meta.lastProcessedSequence) || 0,
             lastTime: (meta && meta.lastProcessedTime) || null,
-            includeExpiredTransactions: true,
+            // includeExpired: true,
         });
 
         await this._subscriber.start();
