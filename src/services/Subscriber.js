@@ -38,6 +38,9 @@ class Subscriber extends BasicService {
     async _handleNewBlock(block) {
         try {
             const counters = this._calcBlockCounters(block);
+            const { codes, actions, codeActions } = this._extractionActionsInfo(
+                block
+            );
 
             const blockModel = new BlockModel({
                 id: block.id,
@@ -48,6 +51,9 @@ class Subscriber extends BasicService {
                     transaction => transaction.id
                 ),
                 counters,
+                codes,
+                actions,
+                codeActions,
             });
 
             await blockModel.save();
@@ -160,6 +166,26 @@ class Subscriber extends BasicService {
         }
 
         return stats;
+    }
+
+    _extractionActionsInfo(block) {
+        const actions = {};
+        const codes = {};
+        const codeActions = {};
+
+        for (const transaction of block.transactions) {
+            for (const { code, action } of transaction.actions) {
+                codes[code] = true;
+                actions[action] = true;
+                codeActions[`${code}::${action}`] = true;
+            }
+        }
+
+        return {
+            codes: Object.keys(codes),
+            actions: Object.keys(actions),
+            codeActions: Object.keys(codeActions),
+        };
     }
 
     async _extractAndSaveUsers(block) {

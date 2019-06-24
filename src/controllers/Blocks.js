@@ -4,13 +4,21 @@ const BlockModel = require('../models/Block');
 const TransactionModel = require('../models/Transaction');
 
 class Blocks {
-    async getBlockList({ fromBlockNum, limit }) {
+    async getBlockList({ fromBlockNum, limit, code, action }) {
         const query = {};
 
         if (fromBlockNum) {
             query.blockNum = {
                 $lte: fromBlockNum,
             };
+        }
+
+        if (code && action) {
+            query.codeActions = `${code}::${action}`;
+        } else if (code) {
+            query.codes = code;
+        } else if (action) {
+            query.actions = action;
         }
 
         const blocks = await BlockModel.find(
