@@ -215,12 +215,24 @@ class Blocks {
     }
 
     async getBlockChainInfo() {
+        let host = null;
+
         const match = env.GLS_BLOCKCHAIN_BROADCASTER_CONNECT.match(
             /@([^@:]+):\d+$/
         );
 
+        if (match) {
+            host = match[1];
+
+            const parts = host.match(/^(\d+)\..*\.(\d+)$/);
+
+            if (parts) {
+                host = `${parts[1]}.*.*.${parts[2]}`;
+            }
+        }
+
         return {
-            blockchainHost: match ? match[1] : null,
+            blockchainHost: host,
         };
     }
 }
