@@ -84,11 +84,11 @@ class Blocks {
         };
 
         if (code && action) {
-            query.codeActions = `${code}::${action}`;
+            query['actionCodes.codeActions'] = `${code}::${action}`;
         } else if (code) {
-            query.codes = code;
+            query['actionCodes.codes'] = code;
         } else if (action) {
-            query.actions = action;
+            query['actionCodes.actions'] = action;
         }
 
         if (status && status !== 'all') {
