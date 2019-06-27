@@ -213,18 +213,16 @@ class Subscriber extends BasicService {
         const codes = {};
         const codeActions = {};
 
-        for (const actionInfo of transaction.actions) {
-            const { code, action } = actionInfo;
-
-            actionInfo.codeAction = `${code}::${action}`;
+        for (const { code, action } of transaction.actions) {
+            const codeAction = `${code}::${action}`;
 
             codes[code] = true;
             actions[action] = true;
-            codeActions[actionInfo.codeAction] = true;
+            codeActions[codeAction] = true;
 
             blockCodes.codes[code] = true;
             blockCodes.actions[action] = true;
-            blockCodes.codeActions[actionInfo.codeAction] = true;
+            blockCodes.codeActions[codeAction] = true;
         }
 
         return {

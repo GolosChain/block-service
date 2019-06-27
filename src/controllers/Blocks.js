@@ -71,10 +71,25 @@ class Blocks {
         return block;
     }
 
-    async getBlockTransactions({ blockId, status, fromIndex, limit }) {
+    async getBlockTransactions({
+        blockId,
+        status,
+        fromIndex,
+        limit,
+        code,
+        action,
+    }) {
         const query = {
             blockId,
         };
+
+        if (code && action) {
+            query.codeActions = `${code}::${action}`;
+        } else if (code) {
+            query.codes = code;
+        } else if (action) {
+            query.actions = action;
+        }
 
         if (status && status !== 'all') {
             query.status = status;
@@ -109,7 +124,7 @@ class Blocks {
         };
     }
 
-    async getTransaction({ transactionId }) {
+    async getTransaction({ transactionId, code, action }) {
         const transaction = await TransactionModel.findOne(
             {
                 id: transactionId,
@@ -132,6 +147,19 @@ class Blocks {
                 code: 404,
                 message: 'Not found',
             };
+        }
+
+        for (let i = 0; i < transaction.actions.length; i++) {
+            // Нумерация в экшинах идет с 1
+            transaction.actions[i].index = i + 1;
+        }
+
+        if (code || action) {
+            transaction.actions = transaction.actions.filter(
+                actionInfo =>
+                    (!code || actionInfo.code === code) &&
+                    (!action || actionInfo.action === action)
+            );
         }
 
         const block = await BlockModel.findOne(

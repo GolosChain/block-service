@@ -14,19 +14,13 @@ class Connector extends BasicConnector {
                 getBlockList: {
                     handler: this._blocks.getBlockList,
                     scope: this._blocks,
-                    inherits: ['limit'],
+                    inherits: ['limit', 'codeActionFilter'],
                     validation: {
                         required: [],
                         properties: {
                             fromBlockNum: {
                                 type: 'number',
                                 minValue: 1,
-                            },
-                            code: {
-                                type: 'string',
-                            },
-                            action: {
-                                type: 'string',
                             },
                         },
                     },
@@ -46,7 +40,7 @@ class Connector extends BasicConnector {
                 getBlockTransactions: {
                     handler: this._blocks.getBlockTransactions,
                     scope: this._blocks,
-                    inherits: ['limit'],
+                    inherits: ['limit', 'codeActionFilter'],
                     validation: {
                         required: ['blockId'],
                         properties: {
@@ -66,6 +60,7 @@ class Connector extends BasicConnector {
                 getTransaction: {
                     handler: this._blocks.getTransaction,
                     scope: this._blocks,
+                    inherits: ['codeActionFilter'],
                     validation: {
                         required: ['transactionId'],
                         properties: {
@@ -103,6 +98,18 @@ class Connector extends BasicConnector {
                                     default: 10,
                                     minValue: 1,
                                     maxValue: 50,
+                                },
+                            },
+                        },
+                    },
+                    codeActionFilter: {
+                        validation: {
+                            properties: {
+                                code: {
+                                    type: 'string',
+                                },
+                                action: {
+                                    type: 'string',
                                 },
                             },
                         },
