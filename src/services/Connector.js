@@ -22,6 +22,10 @@ class Connector extends BasicConnector {
                                 type: 'number',
                                 minValue: 1,
                             },
+                            nonEmpty: {
+                                type: 'boolean',
+                                default: false,
+                            },
                         },
                     },
                 },

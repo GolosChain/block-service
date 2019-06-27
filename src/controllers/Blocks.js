@@ -4,7 +4,7 @@ const BlockModel = require('../models/Block');
 const TransactionModel = require('../models/Transaction');
 
 class Blocks {
-    async getBlockList({ fromBlockNum, limit, code, action }) {
+    async getBlockList({ fromBlockNum, limit, code, action, nonEmpty }) {
         const query = {};
 
         if (fromBlockNum) {
@@ -19,6 +19,10 @@ class Blocks {
             query.codes = code;
         } else if (action) {
             query.actions = action;
+        }
+
+        if (nonEmpty) {
+            query['counters.transactions.total'] = { $ne: 0 };
         }
 
         const blocks = await BlockModel.find(
