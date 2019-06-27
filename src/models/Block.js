@@ -62,12 +62,17 @@ module.exports = MongoDB.makeModel(
             },
             {
                 fields: {
+                    codes: 1,
+                },
+            },
+            {
+                fields: {
                     actions: 1,
                 },
             },
             {
                 fields: {
-                    codes: 1,
+                    codeActions: 1,
                 },
             },
         ],

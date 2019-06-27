@@ -37,6 +37,23 @@ module.exports = MongoDB.makeModel(
             type: Object,
             required: true,
         },
+        actionCodes: {
+            codes: [
+                {
+                    type: String,
+                },
+            ],
+            actions: [
+                {
+                    type: String,
+                },
+            ],
+            codeActions: [
+                {
+                    type: String,
+                },
+            ],
+        },
     },
     {
         index: [
@@ -52,6 +69,21 @@ module.exports = MongoDB.makeModel(
                 fields: {
                     blockNum: 1,
                     index: 1,
+                },
+            },
+            {
+                fields: {
+                    'actionCodes.codes': 1,
+                },
+            },
+            {
+                fields: {
+                    'actionCodes.actions': 1,
+                },
+            },
+            {
+                fields: {
+                    'actionCodes.codeActions': 1,
                 },
             },
         ],

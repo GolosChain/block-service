@@ -7,6 +7,7 @@ const metrics = core.utils.metrics;
 const BlockModel = require('../models/Block');
 const ServiceMeta = require('../models/ServiceMeta');
 const TransactionModel = require('../models/Transaction');
+const ActionVariantModel = require('../models/ActionVariant');
 
 class Subscriber extends BasicService {
     async start() {
@@ -36,26 +37,57 @@ class Subscriber extends BasicService {
      * @private
      */
     async _handleNewBlock(block) {
-        try {
-            const counters = this._calcBlockCounters(block);
-            const { codes, actions, codeActions } = this._extractionActionsInfo(
-                block
-            );
+        let transactions = null;
+        const counters = this._calcBlockCounters(block);
+        const blockCodes = {
+            codes: {},
+            actions: {},
+            codeActions: {},
+        };
 
-            const blockModel = new BlockModel({
-                id: block.id,
-                parentId: block.parentId,
-                blockNum: block.blockNum,
-                blockTime: block.blockTime,
-                transactionIds: block.transactions.map(
-                    transaction => transaction.id
-                ),
-                counters,
-                codes,
-                actions,
-                codeActions,
+        if (block.transactions.length) {
+            transactions = block.transactions.map((trx, index) => {
+                const {
+                    codes,
+                    actions,
+                    codeActions,
+                } = this._extractionActionsInfo(trx, blockCodes);
+
+                return {
+                    ...trx,
+                    index,
+                    blockId: block.id,
+                    blockNum: block.blockNum,
+                    blockTime: block.blockTime,
+                    actionsCount: trx.actions.length,
+                    actionCodes: {
+                        codes,
+                        actions,
+                        codeActions,
+                    },
+                };
             });
+        }
 
+        const codes = Object.keys(blockCodes.codes);
+        const actions = Object.keys(blockCodes.actions);
+        const codeActions = Object.keys(blockCodes.codeActions);
+
+        const blockModel = new BlockModel({
+            id: block.id,
+            parentId: block.parentId,
+            blockNum: block.blockNum,
+            blockTime: block.blockTime,
+            transactionIds: block.transactions.map(
+                transaction => transaction.id
+            ),
+            counters,
+            codes,
+            actions,
+            codeActions,
+        });
+
+        try {
             await blockModel.save();
 
             metrics.inc('saved_blocks_count');
@@ -66,16 +98,24 @@ class Subscriber extends BasicService {
             }
         }
 
-        if (block.transactions.length) {
-            const transactions = block.transactions.map((trx, index) => ({
-                ...trx,
-                index,
-                blockId: block.id,
-                blockNum: block.blockNum,
-                blockTime: block.blockTime,
-                actionsCount: trx.actions.length,
-            }));
+        for (const codeAction of codeActions) {
+            const [code, action] = codeAction.split('::');
 
+            try {
+                await ActionVariantModel.create({
+                    code,
+                    action,
+                    appearInBlockId: block.id,
+                });
+            } catch (err) {
+                // В случае дубликации ничего не делаем, в случае ошибки уведомляем без падения.
+                if (!(err.name === 'MongoError' && err.code === 11000)) {
+                    Logger.warn('Cant save ActionVariant:', err);
+                }
+            }
+        }
+
+        if (transactions) {
             try {
                 await this._saveTransactions(transactions);
             } catch (err) {
@@ -168,16 +208,46 @@ class Subscriber extends BasicService {
         return stats;
     }
 
-    _extractionActionsInfo(block) {
+    _extractionActionsInfo(transaction, blockCodes) {
         const actions = {};
         const codes = {};
         const codeActions = {};
 
-        for (const transaction of block.transactions) {
-            for (const { code, action } of transaction.actions) {
+        for (const actionInfo of transaction.actions) {
+            const { code, action } = actionInfo;
+
+            actionInfo.codeAction = `${code}::${action}`;
+
+            codes[code] = true;
+            actions[action] = true;
+            codeActions[actionInfo.codeAction] = true;
+
+            blockCodes.codes[code] = true;
+            blockCodes.actions[action] = true;
+            blockCodes.codeActions[actionInfo.codeAction] = true;
+        }
+
+        return {
+            codes: Object.keys(codes),
+            actions: Object.keys(actions),
+            codeActions: Object.keys(codeActions),
+        };
+    }
+
+    _combineActions(transactions) {
+        const actions = {};
+        const codes = {};
+        const codeActions = {};
+
+        for (const transaction of transactions) {
+            for (const code of transaction.codes) {
                 codes[code] = true;
+            }
+            for (const action of transaction.actions) {
                 actions[action] = true;
-                codeActions[`${code}::${action}`] = true;
+            }
+            for (const codeAction of transaction.codeActions) {
+                codeActions[codeAction] = true;
             }
         }
 
