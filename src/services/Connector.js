@@ -60,7 +60,6 @@ class Connector extends BasicConnector {
                 getTransaction: {
                     handler: this._blocks.getTransaction,
                     scope: this._blocks,
-                    inherits: ['codeActionFilter'],
                     validation: {
                         required: ['transactionId'],
                         properties: {

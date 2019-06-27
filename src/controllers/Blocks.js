@@ -124,7 +124,7 @@ class Blocks {
         };
     }
 
-    async getTransaction({ transactionId, code, action }) {
+    async getTransaction({ transactionId }) {
         const transaction = await TransactionModel.findOne(
             {
                 id: transactionId,
@@ -152,14 +152,6 @@ class Blocks {
         for (let i = 0; i < transaction.actions.length; i++) {
             // Нумерация в экшинах идет с 1
             transaction.actions[i].index = i + 1;
-        }
-
-        if (code || action) {
-            transaction.actions = transaction.actions.filter(
-                actionInfo =>
-                    (!code || actionInfo.code === code) &&
-                    (!action || actionInfo.action === action)
-            );
         }
 
         const block = await BlockModel.findOne(
