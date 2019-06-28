@@ -152,9 +152,10 @@ class Subscriber extends BasicService {
             }
         );
 
-        console.log(
-            `new block ${block.blockNum} saved, seq: ${block.sequence}, trx: ${block.transactions.length}`
-        );
+        // TODO: remove
+        // console.log(
+        //     `new block ${block.blockNum} saved, seq: ${block.sequence}, trx: ${block.transactions.length}`
+        // );
     }
 
     async _saveTransactions(transactions) {

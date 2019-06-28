@@ -2,10 +2,11 @@ const core = require('gls-core-service');
 const BasicConnector = core.services.Connector;
 
 class Connector extends BasicConnector {
-    constructor({ blocks }) {
+    constructor({ blocks, graphs }) {
         super();
 
         this._blocks = blocks;
+        this._graphs = graphs;
     }
 
     async start() {
@@ -88,6 +89,11 @@ class Connector extends BasicConnector {
                 getBlockChainInfo: {
                     handler: this._blocks.getBlockChainInfo,
                     scope: this._blocks,
+                    validation: {},
+                },
+                getLastHourGraph: {
+                    handler: this._graphs.getLastHourGraph,
+                    scope: this._graphs,
                     validation: {},
                 },
             },
