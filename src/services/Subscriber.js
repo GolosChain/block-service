@@ -37,8 +37,20 @@ class Subscriber extends BasicService {
      * @private
      */
     async _handleNewBlock(block) {
+        const parentBlock = await BlockModel.findOne(
+            {
+                id: block.parentId,
+            },
+            {
+                'counters.transactionsTotal': 1,
+            },
+            {
+                lean: true,
+            }
+        );
+
         let transactions = null;
-        const counters = this._calcBlockCounters(block);
+        const counters = this._calcBlockCounters(block, parentBlock);
         const blockCodes = {
             codes: {},
             actions: {},
@@ -189,20 +201,30 @@ class Subscriber extends BasicService {
         }
     }
 
-    _calcBlockCounters(block) {
+    _calcBlockCounters(block, parentBlock) {
+        const parentTotals = parentBlock
+            ? { ...parentBlock.counters.transactionsTotal }
+            : { executed: 0, total: 0 };
+
         const stats = {
             transactions: {
                 executed: 0,
-                expired: 0,
                 total: block.transactions.length,
             },
+            transactionsTotal: parentTotals,
         };
 
+        stats.transactionsTotal.total += block.transactions.length;
+
         const tStats = stats.transactions;
+        const ttStats = stats.transactionsTotal;
 
         for (const transaction of block.transactions) {
             tStats[transaction.status] = tStats[transaction.status] || 0;
             tStats[transaction.status]++;
+
+            ttStats[transaction.status] = ttStats[transaction.status] || 0;
+            ttStats[transaction.status]++;
         }
 
         return stats;

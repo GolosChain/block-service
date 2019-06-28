@@ -26,8 +26,14 @@ module.exports = MongoDB.makeModel(
             },
         ],
         counters: {
-            type: Object,
-            required: true,
+            transactions: {
+                type: Object,
+                required: true,
+            },
+            transactionsTotal: {
+                type: Object,
+                required: true,
+            },
         },
         codes: [
             {

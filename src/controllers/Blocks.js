@@ -4,6 +4,26 @@ const BlockModel = require('../models/Block');
 const TransactionModel = require('../models/Transaction');
 
 class Blocks {
+    constructor() {
+        let host = null;
+
+        const match = env.GLS_BLOCKCHAIN_BROADCASTER_CONNECT.match(
+            /@([^@:]+):\d+$/
+        );
+
+        if (match) {
+            host = match[1];
+
+            const parts = host.match(/^(\d+)\..*\.(\d+)$/);
+
+            if (parts) {
+                host = `${parts[1]}.*.*.${parts[2]}`;
+            }
+        }
+
+        this._host = host;
+    }
+
     async getBlockList({ fromBlockNum, limit, code, action, nonEmpty }) {
         const query = {};
 
@@ -239,25 +259,33 @@ class Blocks {
     }
 
     async getBlockChainInfo() {
-        let host = null;
+        const results = {
+            lastBlockNum: null,
+            totalTransactions: 0,
+            blockchainHost: this._host,
+        };
 
-        const match = env.GLS_BLOCKCHAIN_BROADCASTER_CONNECT.match(
-            /@([^@:]+):\d+$/
+        const block = await BlockModel.findOne(
+            {},
+            {
+                blockNum: 1,
+                counters: 1,
+            },
+            {
+                sort: {
+                    blockNum: -1,
+                },
+                lean: true,
+            }
         );
 
-        if (match) {
-            host = match[1];
-
-            const parts = host.match(/^(\d+)\..*\.(\d+)$/);
-
-            if (parts) {
-                host = `${parts[1]}.*.*.${parts[2]}`;
-            }
+        if (block) {
+            results.lastBlockNum = block.blockNum;
+            results.totalTransactions =
+                block.counters.transactionsTotal.executed;
         }
 
-        return {
-            blockchainHost: host,
-        };
+        return results;
     }
 }
 
