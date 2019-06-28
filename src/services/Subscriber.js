@@ -5,7 +5,7 @@ const { Logger } = core.utils;
 const BlockSubscribe = core.services.BlockSubscribe;
 const metrics = core.utils.metrics;
 const BlockModel = require('../models/Block');
-const ServiceMeta = require('../models/ServiceMeta');
+const ServiceMetaModel = require('../models/ServiceMeta');
 const TransactionModel = require('../models/Transaction');
 const ActionVariantModel = require('../models/ActionVariant');
 
@@ -13,7 +13,7 @@ class Subscriber extends BasicService {
     async start() {
         await super.start();
 
-        const meta = await ServiceMeta.findOne({}, {}, { lean: true });
+        const meta = await ServiceMetaModel.findOne({}, {}, { lean: true });
 
         this._subscriber = new BlockSubscribe({
             lastSequence: (meta && meta.lastProcessedSequence) || 0,
@@ -142,14 +142,13 @@ class Subscriber extends BasicService {
             await this._extractAndSaveUsers(block);
         }
 
-        await ServiceMeta.updateOne(
+        await ServiceMetaModel.updateOne(
             {},
             {
-                lastProcessedSequence: block.sequence,
-                lastProcessedTime: block.blockTime,
-            },
-            {
-                upsert: true,
+                $set: {
+                    lastProcessedSequence: block.sequence,
+                    lastProcessedTime: block.blockTime,
+                },
             }
         );
 
@@ -187,14 +186,13 @@ class Subscriber extends BasicService {
 
     async _setIrreversibleBlockNum(irreversibleBlockNum) {
         try {
-            await ServiceMeta.updateOne(
+            await ServiceMetaModel.updateOne(
                 {},
                 {
                     $set: {
                         irreversibleBlockNum,
                     },
-                },
-                { upsert: true }
+                }
             );
         } catch (err) {
             Logger.error('ServiceMeta saving failed:', err);

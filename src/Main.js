@@ -4,6 +4,7 @@ const env = require('./data/env');
 const Blocks = require('./controllers/Blocks');
 const Subscriber = require('./services/Subscriber');
 const Connector = require('./services/Connector');
+const ServiceMetaModel = require('./models/ServiceMeta');
 
 class Main extends BasicMain {
     constructor() {
@@ -17,6 +18,19 @@ class Main extends BasicMain {
         this._connector = new Connector({ blocks: this._blocks });
 
         this.addNested(this._subscriber, this._connector);
+    }
+
+    async boot() {
+        const meta = await ServiceMetaModel.findOne(
+            {},
+            { _id: 1 },
+            { lean: true }
+        );
+
+        if (!meta) {
+            const model = new ServiceMetaModel({});
+            await model.save();
+        }
     }
 }
 

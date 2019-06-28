@@ -4,10 +4,14 @@ const MongoDB = core.services.MongoDB;
 module.exports = MongoDB.makeModel('ServiceMeta', {
     lastProcessedSequence: {
         type: Number,
-        required: true,
+        default: null,
     },
     lastProcessedTime: {
         type: Date,
-        required: true,
+        default: null,
+    },
+    irreversibleBlockNum: {
+        type: Number,
+        default: null,
     },
 });

@@ -2,6 +2,7 @@ const env = require('../data/env');
 
 const BlockModel = require('../models/Block');
 const TransactionModel = require('../models/Transaction');
+const ServiceMetaModel = require('../models/ServiceMeta');
 
 class Blocks {
     constructor() {
@@ -260,26 +261,38 @@ class Blocks {
 
     async getBlockChainInfo() {
         const results = {
+            lastBlockId: null,
             lastBlockNum: null,
+            irreversibleBlockNum: null,
             totalTransactions: 0,
             blockchainHost: this._host,
         };
 
-        const block = await BlockModel.findOne(
-            {},
-            {
-                blockNum: 1,
-                counters: 1,
-            },
-            {
-                sort: {
-                    blockNum: -1,
+        const [block, meta] = await Promise.all([
+            BlockModel.findOne(
+                {},
+                {
+                    id: 1,
+                    blockNum: 1,
+                    counters: 1,
                 },
-                lean: true,
-            }
-        );
+                {
+                    sort: {
+                        blockNum: -1,
+                    },
+                    lean: true,
+                }
+            ),
+            ServiceMetaModel.findOne(
+                {},
+                { irreversibleBlockNum: 1 },
+                { lean: true }
+            ),
+        ]);
 
         if (block) {
+            results.lastBlockId = block.id;
+            results.irreversibleBlockNum = meta.irreversibleBlockNum;
             results.lastBlockNum = block.blockNum;
             results.totalTransactions =
                 block.counters.transactionsTotal.executed;
