@@ -13,7 +13,7 @@
   "author": "golos.io",
   "license": "GPL-3.0",
   "dependencies": {
-    "gls-core-service": "^3.37.0",
+    "gls-core-service": "^3.38.0",
     "ramda": "^0.26.1"
   },
   "devDependencies": {

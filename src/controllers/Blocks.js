@@ -54,7 +54,7 @@ class Blocks {
                 parentId: 1,
                 blockNum: 1,
                 blockTime: 1,
-                counters: 1,
+                'counters.transactions': 1,
             },
             {
                 sort: { blockNum: -1 },
@@ -79,7 +79,7 @@ class Blocks {
                 parentId: 1,
                 blockNum: 1,
                 blockTime: 1,
-                counters: 1,
+                'counters.transactions': 1,
             },
             {
                 lean: true,
@@ -294,7 +294,8 @@ class Blocks {
             results.lastBlockId = block.id;
             results.irreversibleBlockNum = meta.irreversibleBlockNum;
             results.lastBlockNum = block.blockNum;
-            results.totalTransactions =
+            results.accountsCount = block.counters.accountsTotal.created;
+            results.transactionsCount =
                 block.counters.transactionsTotal.executed;
         }
 

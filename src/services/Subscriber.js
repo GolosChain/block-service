@@ -42,6 +42,7 @@ class Subscriber extends BasicService {
                 id: block.parentId,
             },
             {
+                'counters.accountsTotal': 1,
                 'counters.transactionsTotal': 1,
             },
             {
@@ -50,7 +51,6 @@ class Subscriber extends BasicService {
         );
 
         let transactions = null;
-        const counters = this._calcBlockCounters(block, parentBlock);
         const blockCodes = {
             codes: {},
             actions: {},
@@ -84,6 +84,12 @@ class Subscriber extends BasicService {
         const codes = Object.keys(blockCodes.codes);
         const actions = Object.keys(blockCodes.actions);
         const codeActions = Object.keys(blockCodes.codeActions);
+
+        const counters = this._calcBlockCounters(
+            block,
+            transactions,
+            parentBlock
+        );
 
         const blockModel = new BlockModel({
             id: block.id,
@@ -153,9 +159,9 @@ class Subscriber extends BasicService {
         );
 
         // TODO: remove
-        // console.log(
-        //     `new block ${block.blockNum} saved, seq: ${block.sequence}, trx: ${block.transactions.length}`
-        // );
+        console.log(
+            `new block ${block.blockNum} saved, seq: ${block.sequence}, trx: ${block.transactions.length}`
+        );
     }
 
     async _saveTransactions(transactions) {
@@ -200,17 +206,23 @@ class Subscriber extends BasicService {
         }
     }
 
-    _calcBlockCounters(block, parentBlock) {
-        const parentTotals = parentBlock
-            ? { ...parentBlock.counters.transactionsTotal }
-            : { executed: 0, total: 0 };
+    _calcBlockCounters(block, transactions, parentBlock) {
+        const parentCounters = parentBlock ? parentBlock.counters : null;
 
         const stats = {
+            accounts: {
+                created: 0,
+            },
+            accountsTotal: parentCounters
+                ? { ...parentCounters.accountsTotal }
+                : { created: 0 },
             transactions: {
                 executed: 0,
                 total: block.transactions.length,
             },
-            transactionsTotal: parentTotals,
+            transactionsTotal: parentCounters
+                ? { ...parentCounters.transactionsTotal }
+                : { executed: 0, total: 0 },
         };
 
         stats.transactionsTotal.total += block.transactions.length;
@@ -218,12 +230,26 @@ class Subscriber extends BasicService {
         const tStats = stats.transactions;
         const ttStats = stats.transactionsTotal;
 
-        for (const transaction of block.transactions) {
-            tStats[transaction.status] = tStats[transaction.status] || 0;
-            tStats[transaction.status]++;
+        if (transactions) {
+            for (const transaction of transactions) {
+                tStats[transaction.status] = tStats[transaction.status] || 0;
+                tStats[transaction.status]++;
 
-            ttStats[transaction.status] = ttStats[transaction.status] || 0;
-            ttStats[transaction.status]++;
+                ttStats[transaction.status] = ttStats[transaction.status] || 0;
+                ttStats[transaction.status]++;
+
+                if (transaction.status === 'executed') {
+                    for (const action of transaction.actions) {
+                        if (
+                            action.code === 'cyber' &&
+                            action.action === 'newaccount'
+                        ) {
+                            stats.accounts.created++;
+                            stats.accountsTotal.created++;
+                        }
+                    }
+                }
+            }
         }
 
         return stats;
