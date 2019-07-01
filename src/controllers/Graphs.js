@@ -21,7 +21,7 @@ class Graphs {
             },
             {
                 blockTime: 1,
-                'counters.transactions.executed': 1,
+                'counters.current.transactions.executed': 1,
             },
             {
                 lean: true,
@@ -38,7 +38,7 @@ class Graphs {
                 Math.floor(delta / interval)
             );
 
-            stats[chunkIndex] += block.counters.transactions.executed;
+            stats[chunkIndex] += block.counters.current.transactions.executed;
         }
 
         stats.reverse();
