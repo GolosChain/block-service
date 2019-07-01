@@ -16,14 +16,16 @@ class Subscriber extends BasicService {
         const meta = await ServiceMetaModel.findOne({}, {}, { lean: true });
 
         this._subscriber = new BlockSubscribe({
-            lastSequence: (meta && meta.lastProcessedSequence) || 0,
-            lastTime: (meta && meta.lastProcessedTime) || null,
-            // includeExpired: true,
+            blockHandler: this._handleNewBlock.bind(this),
+        });
+
+        await this._subscriber.setLastBlockMetaData({
+            lastBlockNum: 0, // Не используется сейчас
+            lastBlockTime: meta.lastProcessedTime,
+            lastBlockSequence: meta.lastProcessedSequence || 0,
         });
 
         await this._subscriber.start();
-
-        this._subscriber.eachBlock(this._handleNewBlock.bind(this));
 
         this._subscriber.on(
             'irreversibleBlockNum',
