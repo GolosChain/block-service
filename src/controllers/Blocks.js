@@ -43,7 +43,7 @@ class Blocks {
         }
 
         if (nonEmpty) {
-            query['counters.transactions.total'] = { $ne: 0 };
+            query['counters.total.transactions'] = { $ne: 0 };
         }
 
         const blocks = await BlockModel.find(
@@ -54,7 +54,8 @@ class Blocks {
                 parentId: 1,
                 blockNum: 1,
                 blockTime: 1,
-                'counters.transactions': 1,
+                'counters.current.transactions': 1,
+                'counters.current.actions': 1,
             },
             {
                 sort: { blockNum: -1 },
@@ -62,6 +63,10 @@ class Blocks {
                 lean: true,
             }
         );
+
+        for (const block of blocks) {
+            block.counters = block.counters.current;
+        }
 
         return {
             blocks,
@@ -79,7 +84,7 @@ class Blocks {
                 parentId: 1,
                 blockNum: 1,
                 blockTime: 1,
-                'counters.transactions': 1,
+                'counters.current.transactions': 1,
             },
             {
                 lean: true,
@@ -92,6 +97,8 @@ class Blocks {
                 message: 'Not found',
             };
         }
+
+        block.counters = block.counters.current;
 
         return block;
     }
@@ -274,7 +281,7 @@ class Blocks {
                 {
                     id: 1,
                     blockNum: 1,
-                    counters: 1,
+                    'counters.total': 1,
                 },
                 {
                     sort: {
@@ -294,9 +301,9 @@ class Blocks {
             results.lastBlockId = block.id;
             results.irreversibleBlockNum = meta.irreversibleBlockNum;
             results.lastBlockNum = block.blockNum;
-            results.accountsCount = block.counters.accountsTotal.created;
+            results.accountsCount = block.counters.total.accounts.created;
             results.transactionsCount =
-                block.counters.transactionsTotal.executed;
+                block.counters.total.transactions.executed;
         }
 
         return results;

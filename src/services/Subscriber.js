@@ -42,8 +42,7 @@ class Subscriber extends BasicService {
                 id: block.parentId,
             },
             {
-                'counters.accountsTotal': 1,
-                'counters.transactionsTotal': 1,
+                'counters.total': 1,
             },
             {
                 lean: true,
@@ -207,52 +206,48 @@ class Subscriber extends BasicService {
     }
 
     _calcBlockCounters(block, transactions, parentBlock) {
-        const parentCounters = parentBlock ? parentBlock.counters : null;
-
         const stats = {
             accounts: {
                 created: 0,
             },
-            accountsTotal: parentCounters
-                ? { ...parentCounters.accountsTotal }
-                : { created: 0 },
             transactions: {
                 executed: 0,
                 total: block.transactions.length,
             },
-            transactionsTotal: parentCounters
-                ? { ...parentCounters.transactionsTotal }
-                : { executed: 0, total: 0 },
+            actions: {
+                count: 0,
+            },
         };
 
-        stats.transactionsTotal.total += block.transactions.length;
-
         const tStats = stats.transactions;
-        const ttStats = stats.transactionsTotal;
 
         if (transactions) {
             for (const transaction of transactions) {
                 tStats[transaction.status] = tStats[transaction.status] || 0;
                 tStats[transaction.status]++;
 
-                ttStats[transaction.status] = ttStats[transaction.status] || 0;
-                ttStats[transaction.status]++;
-
                 if (transaction.status === 'executed') {
+                    stats.actions.count += transaction.actions.length;
+
                     for (const action of transaction.actions) {
                         if (
                             action.code === 'cyber' &&
                             action.action === 'newaccount'
                         ) {
                             stats.accounts.created++;
-                            stats.accountsTotal.created++;
                         }
                     }
                 }
             }
         }
 
-        return stats;
+        return {
+            current: stats,
+            total: this._mergeStats(
+                parentBlock ? parentBlock.counters.total : null,
+                stats
+            ),
+        };
     }
 
     _extractionActionsInfo(transaction, blockCodes) {
@@ -345,6 +340,33 @@ class Subscriber extends BasicService {
                 }
             }
         }
+    }
+
+    _mergeStats(a, b) {
+        if (!a) {
+            return b;
+        }
+
+        if (!b) {
+            return a;
+        }
+
+        const stats = {};
+
+        for (const category of Object.keys(b)) {
+            const aa = a[category];
+            const bb = b[category];
+
+            const sum = { ...aa } || {};
+
+            for (const field of Object.keys(bb)) {
+                sum[field] = (sum[field] || 0) + bb[field];
+            }
+
+            stats[category] = sum;
+        }
+
+        return stats;
     }
 }
 

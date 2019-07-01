@@ -26,19 +26,11 @@ module.exports = MongoDB.makeModel(
             },
         ],
         counters: {
-            accounts: {
+            current: {
                 type: Object,
                 required: true,
             },
-            accountsTotal: {
-                type: Object,
-                required: true,
-            },
-            transactions: {
-                type: Object,
-                required: true,
-            },
-            transactionsTotal: {
+            total: {
                 type: Object,
                 required: true,
             },
