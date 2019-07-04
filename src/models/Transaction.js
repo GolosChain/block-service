@@ -37,7 +37,7 @@ module.exports = MongoDB.makeModel(
             type: Object,
             required: true,
         },
-        actionCodes: {
+        actionsIndexes: {
             codes: [
                 {
                     type: String,
@@ -49,6 +49,16 @@ module.exports = MongoDB.makeModel(
                 },
             ],
             codeActions: [
+                {
+                    type: String,
+                },
+            ],
+            actors: [
+                {
+                    type: String,
+                },
+            ],
+            actorsPerm: [
                 {
                     type: String,
                 },
@@ -73,17 +83,27 @@ module.exports = MongoDB.makeModel(
             },
             {
                 fields: {
-                    'actionCodes.codes': 1,
+                    'actionsIndexes.codes': 1,
                 },
             },
             {
                 fields: {
-                    'actionCodes.actions': 1,
+                    'actionsIndexes.actions': 1,
                 },
             },
             {
                 fields: {
-                    'actionCodes.codeActions': 1,
+                    'actionsIndexes.codeActions': 1,
+                },
+            },
+            {
+                fields: {
+                    'actionsIndexes.actors': 1,
+                },
+            },
+            {
+                fields: {
+                    'actionsIndexes.actorsPerm': 1,
                 },
             },
         ],

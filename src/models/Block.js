@@ -50,6 +50,16 @@ module.exports = MongoDB.makeModel(
                 type: String,
             },
         ],
+        actors: [
+            {
+                type: String,
+            },
+        ],
+        actorsPerm: [
+            {
+                type: String,
+            },
+        ],
     },
     {
         index: [
@@ -79,6 +89,16 @@ module.exports = MongoDB.makeModel(
             {
                 fields: {
                     codeActions: 1,
+                },
+            },
+            {
+                fields: {
+                    actors: 1,
+                },
+            },
+            {
+                fields: {
+                    actorsPerm: 1,
                 },
             },
         ],

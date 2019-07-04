@@ -52,10 +52,12 @@ class Subscriber extends BasicService {
         );
 
         let transactions = null;
-        const blockCodes = {
+        const blockIndexes = {
             codes: {},
             actions: {},
             codeActions: {},
+            actors: {},
+            actorsPerm: {},
         };
 
         if (block.transactions.length) {
@@ -64,7 +66,9 @@ class Subscriber extends BasicService {
                     codes,
                     actions,
                     codeActions,
-                } = this._extractionActionsInfo(trx, blockCodes);
+                    actors,
+                    actorsPerm,
+                } = this._extractionActionsInfo(trx, blockIndexes);
 
                 return {
                     ...trx,
@@ -73,18 +77,18 @@ class Subscriber extends BasicService {
                     blockNum: block.blockNum,
                     blockTime: block.blockTime,
                     actionsCount: trx.actions.length,
-                    actionCodes: {
+                    actionsIndexes: {
                         codes,
                         actions,
                         codeActions,
+                        actors,
+                        actorsPerm,
                     },
                 };
             });
         }
 
-        const codes = Object.keys(blockCodes.codes);
-        const actions = Object.keys(blockCodes.actions);
-        const codeActions = Object.keys(blockCodes.codeActions);
+        const codeActions = Object.keys(blockIndexes.codeActions);
 
         const counters = this._calcBlockCounters(
             block,
@@ -101,9 +105,11 @@ class Subscriber extends BasicService {
                 transaction => transaction.id
             ),
             counters,
-            codes,
-            actions,
+            codes: Object.keys(blockIndexes.codes),
+            actions: Object.keys(blockIndexes.actions),
             codeActions,
+            actors: Object.keys(blockIndexes.actors),
+            actorsPerm: Object.keys(blockIndexes.actorsPerm),
         });
 
         try {
@@ -161,7 +167,9 @@ class Subscriber extends BasicService {
 
         // TODO: remove
         console.log(
-            `new block ${block.blockNum} saved, seq: ${block.sequence}, trx: ${block.transactions.length}`
+            `new block ${block.blockNum} saved, seq: ${block.sequence}, trx: ${
+                block.transactions.length
+            }`
         );
     }
 
@@ -252,27 +260,43 @@ class Subscriber extends BasicService {
         };
     }
 
-    _extractionActionsInfo(transaction, blockCodes) {
+    _extractionActionsInfo(transaction, blockIndexes) {
         const actions = {};
         const codes = {};
         const codeActions = {};
+        const actors = {};
+        const actorsPerm = {};
 
-        for (const { code, action } of transaction.actions) {
+        for (const { code, action, auth } of transaction.actions) {
             const codeAction = `${code}::${action}`;
 
             codes[code] = true;
             actions[action] = true;
             codeActions[codeAction] = true;
 
-            blockCodes.codes[code] = true;
-            blockCodes.actions[action] = true;
-            blockCodes.codeActions[codeAction] = true;
+            blockIndexes.codes[code] = true;
+            blockIndexes.actions[action] = true;
+            blockIndexes.codeActions[codeAction] = true;
+
+            if (auth) {
+                for (const { actor, permission } of auth) {
+                    const actorPerm = `${actor}/${permission}`;
+
+                    actors[actor] = true;
+                    actorsPerm[actorPerm] = true;
+
+                    blockIndexes.actors[actor] = true;
+                    blockIndexes.actorsPerm[actorPerm] = true;
+                }
+            }
         }
 
         return {
             codes: Object.keys(codes),
             actions: Object.keys(actions),
             codeActions: Object.keys(codeActions),
+            actors: Object.keys(actors),
+            actorsPerm: Object.keys(actorsPerm),
         };
     }
 
