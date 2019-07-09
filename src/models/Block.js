@@ -60,6 +60,11 @@ module.exports = MongoDB.makeModel(
                 type: String,
             },
         ],
+        eventNames: [
+            {
+                type: String,
+            },
+        ],
     },
     {
         index: [
@@ -99,6 +104,11 @@ module.exports = MongoDB.makeModel(
             {
                 fields: {
                     actorsPerm: 1,
+                },
+            },
+            {
+                fields: {
+                    eventNames: 1,
                 },
             },
         ],

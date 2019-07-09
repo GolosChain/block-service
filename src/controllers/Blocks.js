@@ -25,7 +25,15 @@ class Blocks {
         this._host = host;
     }
 
-    async getBlockList({ fromBlockNum, limit, code, action, actor, nonEmpty }) {
+    async getBlockList({
+        fromBlockNum,
+        limit,
+        code,
+        action,
+        actor,
+        event,
+        nonEmpty,
+    }) {
         const query = {};
 
         if (fromBlockNum) {
@@ -34,7 +42,7 @@ class Blocks {
             };
         }
 
-        this._addFilters(query, '', { code, action, actor });
+        this._addFilters(query, '', { code, action, actor, event });
 
         if (nonEmpty) {
             query['counters.total.transactions'] = { $ne: 0 };
@@ -105,12 +113,18 @@ class Blocks {
         code,
         action,
         actor,
+        event,
     }) {
         const query = {
             blockId,
         };
 
-        this._addFilters(query, 'actionsIndexes.', { code, action, actor });
+        this._addFilters(query, 'actionsIndexes.', {
+            code,
+            action,
+            actor,
+            event,
+        });
 
         if (status && status !== 'all') {
             query.status = status;
@@ -298,7 +312,7 @@ class Blocks {
         return results;
     }
 
-    _addFilters(query, prefix = '', { code, action, actor }) {
+    _addFilters(query, prefix = '', { code, action, actor, event }) {
         if (code && action) {
             query[`${prefix}codeActions`] = `${code}::${action}`;
         } else if (code) {
@@ -313,6 +327,10 @@ class Blocks {
             } else {
                 query[`${prefix}actors`] = actor;
             }
+        }
+
+        if (event) {
+            query[`${prefix}eventNames`] = event;
         }
     }
 }

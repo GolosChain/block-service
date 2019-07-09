@@ -58,6 +58,7 @@ class Subscriber extends BasicService {
             codeActions: {},
             actors: {},
             actorsPerm: {},
+            eventNames: {},
         };
 
         if (block.transactions.length) {
@@ -68,6 +69,7 @@ class Subscriber extends BasicService {
                     codeActions,
                     actors,
                     actorsPerm,
+                    eventNames,
                 } = this._extractionActionsInfo(trx, blockIndexes);
 
                 return {
@@ -83,6 +85,7 @@ class Subscriber extends BasicService {
                         codeActions,
                         actors,
                         actorsPerm,
+                        eventNames,
                     },
                 };
             });
@@ -110,6 +113,7 @@ class Subscriber extends BasicService {
             codeActions,
             actors: Object.keys(blockIndexes.actors),
             actorsPerm: Object.keys(blockIndexes.actorsPerm),
+            eventNames: Object.keys(blockIndexes.eventNames),
         });
 
         try {
@@ -167,9 +171,7 @@ class Subscriber extends BasicService {
 
         // TODO: remove
         console.log(
-            `new block ${block.blockNum} saved, seq: ${block.sequence}, trx: ${
-                block.transactions.length
-            }`
+            `new block ${block.blockNum} saved, seq: ${block.sequence}, trx: ${block.transactions.length}`
         );
     }
 
@@ -266,8 +268,9 @@ class Subscriber extends BasicService {
         const codeActions = {};
         const actors = {};
         const actorsPerm = {};
+        const eventNames = {};
 
-        for (const { code, action, auth } of transaction.actions) {
+        for (const { code, action, auth, events } of transaction.actions) {
             const codeAction = `${code}::${action}`;
 
             codes[code] = true;
@@ -289,6 +292,17 @@ class Subscriber extends BasicService {
                     blockIndexes.actorsPerm[actorPerm] = true;
                 }
             }
+
+            if (events) {
+                for (const event of events) {
+                    eventNames[event.event] = true;
+                    blockIndexes.eventNames[event.event] = true;
+
+                    if (event.data === '') {
+                        event.data = undefined;
+                    }
+                }
+            }
         }
 
         return {
@@ -297,6 +311,7 @@ class Subscriber extends BasicService {
             codeActions: Object.keys(codeActions),
             actors: Object.keys(actors),
             actorsPerm: Object.keys(actorsPerm),
+            eventNames: Object.keys(eventNames),
         };
     }
 

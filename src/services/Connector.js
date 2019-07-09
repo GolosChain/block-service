@@ -123,6 +123,9 @@ class Connector extends BasicConnector {
                                 actor: {
                                     type: 'string',
                                 },
+                                event: {
+                                    type: 'string',
+                                },
                             },
                         },
                     },
