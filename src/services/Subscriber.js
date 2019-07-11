@@ -16,21 +16,39 @@ class Subscriber extends BasicService {
         const meta = await ServiceMetaModel.findOne({}, {}, { lean: true });
 
         this._subscriber = new BlockSubscribe({
-            blockHandler: this._handleNewBlock.bind(this),
+            handler: this._handleEvent.bind(this),
         });
 
         await this._subscriber.setLastBlockMetaData({
-            lastBlockNum: 0, // Не используется сейчас
-            lastBlockTime: meta.lastProcessedTime,
+            lastBlockNum: meta.lastProcessedBlockNum,
             lastBlockSequence: meta.lastProcessedSequence || 0,
         });
 
         await this._subscriber.start();
+    }
 
-        this._subscriber.on(
-            'irreversibleBlockNum',
-            this._setIrreversibleBlockNum.bind(this)
-        );
+    /**
+     * Обработка событий из BlockSubscribe.
+     * @param {'BLOCK'|'FORK'|'IRREVERSIBLE_BLOCK'} type
+     * @param {Object} data
+     * @private
+     */
+    async _handleEvent({ type, data }) {
+        switch (type) {
+            case 'BLOCK':
+                await this._handleNewBlock(data);
+                break;
+            case 'IRREVERSIBLE_BLOCK':
+                await this._setIrreversibleBlockNum(data);
+                break;
+            case 'FORK':
+                Logger.warn(
+                    `Fork detected, new safe base on block num: ${data.baseBlockNum}`
+                );
+                await this._deleteInvalidEntries(data.baseBlockNum);
+                break;
+            default:
+        }
     }
 
     /**
@@ -202,13 +220,13 @@ class Subscriber extends BasicService {
         }
     }
 
-    async _setIrreversibleBlockNum(irreversibleBlockNum) {
+    async _setIrreversibleBlockNum(block) {
         try {
             await ServiceMetaModel.updateOne(
                 {},
                 {
                     $set: {
-                        irreversibleBlockNum,
+                        irreversibleBlockNum: block.blockNum,
                     },
                 }
             );
@@ -337,6 +355,22 @@ class Subscriber extends BasicService {
             actions: Object.keys(actions),
             codeActions: Object.keys(codeActions),
         };
+    }
+
+    async _deleteInvalidEntries(baseBlockNum) {
+        Logger.info(`Deleting all entries above block num: ${baseBlockNum}`);
+
+        await BlockModel.deleteMany({
+            blockNum: {
+                $gt: baseBlockNum,
+            },
+        });
+
+        await TransactionModel.deleteMany({
+            blockNum: {
+                $gt: baseBlockNum,
+            },
+        });
     }
 
     async _extractAndSaveUsers(block) {
