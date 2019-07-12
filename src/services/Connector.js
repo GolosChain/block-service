@@ -15,7 +15,7 @@ class Connector extends BasicConnector {
                 getBlockList: {
                     handler: this._blocks.getBlockList,
                     scope: this._blocks,
-                    inherits: ['limit', 'codeActionFilter'],
+                    inherits: ['limit', 'actionFilters'],
                     validation: {
                         required: [],
                         properties: {
@@ -45,7 +45,7 @@ class Connector extends BasicConnector {
                 getBlockTransactions: {
                     handler: this._blocks.getBlockTransactions,
                     scope: this._blocks,
-                    inherits: ['limit', 'codeActionFilter'],
+                    inherits: ['limit', 'actionFilters'],
                     validation: {
                         required: ['blockId'],
                         properties: {
@@ -94,6 +94,7 @@ class Connector extends BasicConnector {
                 getAccountTransactions: {
                     handler: this._blocks.getAccountTransactions,
                     scope: this._blocks,
+                    inherits: ['actionFilters'],
                     validation: {
                         required: ['accountId'],
                         properties: {
@@ -105,7 +106,7 @@ class Connector extends BasicConnector {
                                 enum: ['all', 'actor', 'mention'],
                                 default: 'all',
                             },
-                            afterTrxId: {
+                            sequenceKey: {
                                 type: 'string',
                             },
                             limit: {
@@ -137,7 +138,7 @@ class Connector extends BasicConnector {
                             },
                         },
                     },
-                    codeActionFilter: {
+                    actionFilters: {
                         validation: {
                             properties: {
                                 code: {

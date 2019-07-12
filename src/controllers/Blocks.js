@@ -314,7 +314,16 @@ class Blocks {
         }
     }
 
-    async getAccountTransactions({ accountId, type, afterTrxId, limit }) {
+    async getAccountTransactions({
+        accountId,
+        type,
+        code,
+        action,
+        actor,
+        event,
+        sequenceKey,
+        limit,
+    }) {
         const query = {
             status: 'executed',
         };
@@ -327,24 +336,30 @@ class Blocks {
                 ];
                 break;
             case 'actor':
-                query['actionsIndexes.accounts'] = accountId;
+                query['actionsIndexes.actors'] = accountId;
                 break;
             case 'mention':
-                query['actionsIndexes.actors'] = accountId;
+                query['actionsIndexes.accounts'] = accountId;
                 break;
             default:
         }
 
-        if (afterTrxId) {
-            query.id = {
-                $lt: afterTrxId,
+        this._addFilters(query, 'actionsIndexes.', {
+            code,
+            action,
+            actor,
+            event,
+        });
+
+        if (sequenceKey) {
+            query._id = {
+                $lt: sequenceKey,
             };
         }
 
         const transactions = await TransactionModel.find(
             query,
             {
-                _id: false,
                 id: true,
                 status: true,
                 blockId: true,
@@ -352,16 +367,28 @@ class Blocks {
                 blockTime: true,
                 actions: true,
             },
-            { lean: true, limit, sort: { blockNum: -1, index: 1 } }
+            { lean: true, limit, sort: { _id: -1 } }
         );
 
         for (const transaction of transactions) {
             this._addActionIndexes(transaction.actions);
         }
 
+        let nextSequenceKey = null;
+
+        if (transactions.length === limit) {
+            const { _id } = transactions[transactions.length - 1];
+            nextSequenceKey = _id;
+        }
+
+        for (const transaction of transactions) {
+            delete transaction._id;
+        }
+
         return {
             id: accountId,
             transactions,
+            sequenceKey: nextSequenceKey,
         };
     }
 
