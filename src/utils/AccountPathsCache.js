@@ -8,6 +8,11 @@ class AccountPathsCache {
     }
 
     async get(account, action) {
+        // TODO: remove
+        if (account === 'cyber.token' && action === 'open') {
+            return ['owner'];
+        }
+
         let accountCache = this._cache.get(account);
 
         if (!accountCache) {

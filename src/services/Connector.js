@@ -91,6 +91,27 @@ class Connector extends BasicConnector {
                     scope: this._blocks,
                     validation: {},
                 },
+                getAccountTransactions: {
+                    handler: this._blocks.getAccountTransactions,
+                    scope: this._blocks,
+                    validation: {
+                        required: ['accountId'],
+                        properties: {
+                            accountId: {
+                                type: 'string',
+                            },
+                            afterTrxId: {
+                                type: 'string',
+                            },
+                            limit: {
+                                type: 'number',
+                                default: 10,
+                                minValue: 1,
+                                maxValue: 20,
+                            },
+                        },
+                    },
+                },
                 getLastHourGraph: {
                     handler: this._graphs.getLastHourGraph,
                     scope: this._graphs,

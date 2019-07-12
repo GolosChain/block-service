@@ -184,29 +184,9 @@ class Blocks {
             };
         }
 
-        for (let i = 0; i < transaction.actions.length; i++) {
-            // Нумерация в экшинах идет с 1
-            transaction.actions[i].index = i + 1;
-        }
+        this._addActionIndexes(transaction.actions);
 
-        const block = await BlockModel.findOne(
-            {
-                id: transaction.blockId,
-            },
-            {
-                _id: 0,
-                id: 1,
-                blockNum: 1,
-                blockTime: 1,
-            }
-        );
-
-        return {
-            ...transaction,
-            blockId: block.id,
-            blockNum: block.blockNum,
-            blockTime: block.blockTime,
-        };
+        return transaction;
     }
 
     async findEntity({ text }) {
@@ -331,6 +311,53 @@ class Blocks {
 
         if (event) {
             query[`${prefix}eventNames`] = event;
+        }
+    }
+
+    async getAccountTransactions({ accountId, afterTrxId, limit }) {
+        const query = {
+            status: 'executed',
+            $or: [
+                { 'actionsIndexes.accounts': accountId },
+                { 'actionsIndexes.actors': accountId },
+            ],
+        };
+
+        if (afterTrxId) {
+            query.id = {
+                $lt: afterTrxId,
+            };
+        }
+
+        const transactions = await TransactionModel.find(
+            query,
+            {
+                _id: false,
+                id: true,
+                status: true,
+                blockId: true,
+                blockNum: true,
+                blockTime: true,
+                actions: true,
+            },
+            { lean: true, limit, sort: { blockNum: -1, index: 1 } }
+        );
+
+        for (const transaction of transactions) {
+            this._addActionIndexes(transaction.actions);
+        }
+
+        return {
+            id: accountId,
+            transactions,
+        };
+    }
+
+    _addActionIndexes(actions) {
+        for (let i = 0; i < actions.length; i++) {
+            const action = actions[i];
+            // Нумерация в экшенах идет с 1
+            action.index = i + 1;
         }
     }
 }

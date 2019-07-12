@@ -20,6 +20,10 @@ module.exports = MongoDB.makeModel(
             type: Number,
             required: true,
         },
+        blockTime: {
+            type: Date,
+            required: true,
+        },
         status: {
             type: String,
             required: true,
@@ -87,7 +91,7 @@ module.exports = MongoDB.makeModel(
             },
             {
                 fields: {
-                    blockNum: 1,
+                    blockNum: -1,
                     index: 1,
                 },
             },

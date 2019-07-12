@@ -282,13 +282,9 @@ class Subscriber extends BasicService {
         const accounts = {};
         const eventNames = {};
 
-        for (const {
-            code,
-            action,
-            auth,
-            args,
-            events,
-        } of transaction.actions) {
+        for (const actionObject of transaction.actions) {
+            const { code, action, auth, args, events } = actionObject;
+
             const codeAction = `${code}::${action}`;
 
             codes[code] = true;
@@ -311,8 +307,19 @@ class Subscriber extends BasicService {
                 }
             }
 
+            if (actionObject.data === '') {
+                actionObject.data = undefined;
+            }
+
             if (args) {
-                await this._extractAccounts({ code, action, args }, accounts);
+                const actionAccounts = await this._extractAccounts({
+                    code,
+                    action,
+                    args,
+                });
+
+                actionObject.accounts = Object.keys(actionAccounts);
+                Object.assign(accounts, actionAccounts);
             }
 
             if (events) {
@@ -368,12 +375,14 @@ class Subscriber extends BasicService {
         this._accountPathsCache.deleteNewerThanBlockNum(baseBlockNum);
     }
 
-    async _extractAccounts({ code, action, args }, accounts) {
+    async _extractAccounts({ code, action, args }) {
         const paths = await this._accountPathsCache.get(code, action);
 
         if (!paths) {
-            return;
+            return {};
         }
+
+        const accounts = {};
 
         for (const path of paths) {
             const account = args[path];
@@ -382,6 +391,8 @@ class Subscriber extends BasicService {
                 accounts[account] = true;
             }
         }
+
+        return accounts;
     }
 
     async _extractAndSaveAccountPaths(block) {
