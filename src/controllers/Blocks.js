@@ -314,14 +314,26 @@ class Blocks {
         }
     }
 
-    async getAccountTransactions({ accountId, afterTrxId, limit }) {
+    async getAccountTransactions({ accountId, type, afterTrxId, limit }) {
         const query = {
             status: 'executed',
-            $or: [
-                { 'actionsIndexes.accounts': accountId },
-                { 'actionsIndexes.actors': accountId },
-            ],
         };
+
+        switch (type) {
+            case 'all':
+                query['$or'] = [
+                    { 'actionsIndexes.accounts': accountId },
+                    { 'actionsIndexes.actors': accountId },
+                ];
+                break;
+            case 'actor':
+                query['actionsIndexes.accounts'] = accountId;
+                break;
+            case 'mention':
+                query['actionsIndexes.actors'] = accountId;
+                break;
+            default:
+        }
 
         if (afterTrxId) {
             query.id = {

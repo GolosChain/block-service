@@ -100,6 +100,11 @@ class Connector extends BasicConnector {
                             accountId: {
                                 type: 'string',
                             },
+                            type: {
+                                type: 'string',
+                                enum: ['all', 'actor', 'mention'],
+                                default: 'all',
+                            },
                             afterTrxId: {
                                 type: 'string',
                             },
