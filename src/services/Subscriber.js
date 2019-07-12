@@ -8,6 +8,7 @@ const BlockModel = require('../models/Block');
 const ServiceMetaModel = require('../models/ServiceMeta');
 const TransactionModel = require('../models/Transaction');
 const AccountPathModel = require('../models/AccountPath');
+const AccountModel = require('../models/Account');
 const CyberwayClient = require('../utils/Cyberway');
 const AccountPathsCache = require('../utils/AccountPathsCache');
 
@@ -119,7 +120,7 @@ class Subscriber extends BasicService {
             );
         }
 
-        const counters = this._calcBlockCounters(
+        const { counters, newAccounts } = this._calcBlockCounters(
             block,
             transactions,
             parentBlock
@@ -166,6 +167,10 @@ class Subscriber extends BasicService {
             }
 
             await this._extractAndSaveUsers(block);
+        }
+
+        if (newAccounts.length) {
+            await this._saveNewAccounts(newAccounts, block);
         }
 
         await ServiceMetaModel.updateOne(
@@ -242,6 +247,8 @@ class Subscriber extends BasicService {
             },
         };
 
+        const newAccounts = [];
+
         const tStats = stats.transactions;
 
         if (transactions) {
@@ -258,6 +265,16 @@ class Subscriber extends BasicService {
                             action.action === 'newaccount'
                         ) {
                             stats.accounts.created++;
+
+                            const { args } = action;
+
+                            newAccounts.push({
+                                id: args.name,
+                                keys: {
+                                    owner: args.owner,
+                                    active: args.active,
+                                },
+                            });
                         }
                     }
                 }
@@ -265,11 +282,14 @@ class Subscriber extends BasicService {
         }
 
         return {
-            current: stats,
-            total: this._mergeStats(
-                parentBlock ? parentBlock.counters.total : null,
-                stats
-            ),
+            counters: {
+                current: stats,
+                total: this._mergeStats(
+                    parentBlock ? parentBlock.counters.total : null,
+                    stats
+                ),
+            },
+            newAccounts,
         };
     }
 
@@ -481,6 +501,29 @@ class Subscriber extends BasicService {
             account,
             entries,
         };
+    }
+
+    async _saveNewAccounts(accounts, block) {
+        await Promise.all(
+            accounts.map(async ({ id, keys }) => {
+                const accountModel = new AccountModel({
+                    blockId: block.id,
+                    blockNum: block.blockNum,
+                    blockTime: block.blockTime,
+                    id,
+                    keys,
+                });
+
+                try {
+                    await accountModel.save();
+                } catch (err) {
+                    // В случае дубликации ничего не делаем.
+                    if (!(err.name === 'MongoError' && err.code === 11000)) {
+                        throw err;
+                    }
+                }
+            })
+        );
     }
 
     async _extractAndSaveUsers(block) {
