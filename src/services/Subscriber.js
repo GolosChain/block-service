@@ -7,13 +7,17 @@ const metrics = core.utils.metrics;
 const BlockModel = require('../models/Block');
 const ServiceMetaModel = require('../models/ServiceMeta');
 const TransactionModel = require('../models/Transaction');
-const ActionVariantModel = require('../models/ActionVariant');
+const AccountPathModel = require('../models/AccountPath');
+const CyberwayClient = require('../utils/Cyberway');
+const AccountPathsCache = require('../utils/AccountPathsCache');
 
 class Subscriber extends BasicService {
     async start() {
         await super.start();
 
         const meta = await ServiceMetaModel.findOne({}, {}, { lean: true });
+
+        this._accountPathsCache = new AccountPathsCache();
 
         this._subscriber = new BlockSubscribe({
             handler: this._handleEvent.bind(this),
@@ -80,36 +84,40 @@ class Subscriber extends BasicService {
         };
 
         if (block.transactions.length) {
-            transactions = block.transactions.map((trx, index) => {
-                const {
-                    codes,
-                    actions,
-                    codeActions,
-                    actors,
-                    actorsPerm,
-                    eventNames,
-                } = this._extractionActionsInfo(trx, blockIndexes);
+            transactions = [];
 
-                return {
-                    ...trx,
-                    index,
-                    blockId: block.id,
-                    blockNum: block.blockNum,
-                    blockTime: block.blockTime,
-                    actionsCount: trx.actions.length,
-                    actionsIndexes: {
+            await Promise.all(
+                block.transactions.map(async (trx, index) => {
+                    const {
                         codes,
                         actions,
                         codeActions,
                         actors,
                         actorsPerm,
+                        accounts,
                         eventNames,
-                    },
-                };
-            });
-        }
+                    } = await this._extractionActionsInfo(trx, blockIndexes);
 
-        const codeActions = Object.keys(blockIndexes.codeActions);
+                    transactions.push({
+                        ...trx,
+                        index,
+                        blockId: block.id,
+                        blockNum: block.blockNum,
+                        blockTime: block.blockTime,
+                        actionsCount: trx.actions.length,
+                        actionsIndexes: {
+                            codes,
+                            actions,
+                            codeActions,
+                            actors,
+                            actorsPerm,
+                            accounts,
+                            eventNames,
+                        },
+                    });
+                })
+            );
+        }
 
         const counters = this._calcBlockCounters(
             block,
@@ -128,7 +136,7 @@ class Subscriber extends BasicService {
             counters,
             codes: Object.keys(blockIndexes.codes),
             actions: Object.keys(blockIndexes.actions),
-            codeActions,
+            codeActions: Object.keys(blockIndexes.codeActions),
             actors: Object.keys(blockIndexes.actors),
             actorsPerm: Object.keys(blockIndexes.actorsPerm),
             eventNames: Object.keys(blockIndexes.eventNames),
@@ -142,23 +150,6 @@ class Subscriber extends BasicService {
             // В случае дубликации ничего не делаем.
             if (!(err.name === 'MongoError' && err.code === 11000)) {
                 throw err;
-            }
-        }
-
-        for (const codeAction of codeActions) {
-            const [code, action] = codeAction.split('::');
-
-            try {
-                await ActionVariantModel.create({
-                    code,
-                    action,
-                    appearInBlockId: block.id,
-                });
-            } catch (err) {
-                // В случае дубликации ничего не делаем, в случае ошибки уведомляем без падения.
-                if (!(err.name === 'MongoError' && err.code === 11000)) {
-                    Logger.warn('Cant save ActionVariant:', err);
-                }
             }
         }
 
@@ -186,6 +177,8 @@ class Subscriber extends BasicService {
                 },
             }
         );
+
+        await this._extractAndSaveAccountPaths(block);
 
         // TODO: remove
         console.log(
@@ -280,15 +273,22 @@ class Subscriber extends BasicService {
         };
     }
 
-    _extractionActionsInfo(transaction, blockIndexes) {
+    async _extractionActionsInfo(transaction, blockIndexes) {
         const actions = {};
         const codes = {};
         const codeActions = {};
         const actors = {};
         const actorsPerm = {};
+        const accounts = {};
         const eventNames = {};
 
-        for (const { code, action, auth, events } of transaction.actions) {
+        for (const {
+            code,
+            action,
+            auth,
+            args,
+            events,
+        } of transaction.actions) {
             const codeAction = `${code}::${action}`;
 
             codes[code] = true;
@@ -311,6 +311,10 @@ class Subscriber extends BasicService {
                 }
             }
 
+            if (args) {
+                await this._extractAccounts({ code, action, args }, accounts);
+            }
+
             if (events) {
                 for (const event of events) {
                     eventNames[event.event] = true;
@@ -329,31 +333,8 @@ class Subscriber extends BasicService {
             codeActions: Object.keys(codeActions),
             actors: Object.keys(actors),
             actorsPerm: Object.keys(actorsPerm),
+            accounts: Object.keys(accounts),
             eventNames: Object.keys(eventNames),
-        };
-    }
-
-    _combineActions(transactions) {
-        const actions = {};
-        const codes = {};
-        const codeActions = {};
-
-        for (const transaction of transactions) {
-            for (const code of transaction.codes) {
-                codes[code] = true;
-            }
-            for (const action of transaction.actions) {
-                actions[action] = true;
-            }
-            for (const codeAction of transaction.codeActions) {
-                codeActions[codeAction] = true;
-            }
-        }
-
-        return {
-            codes: Object.keys(codes),
-            actions: Object.keys(actions),
-            codeActions: Object.keys(codeActions),
         };
     }
 
@@ -371,6 +352,124 @@ class Subscriber extends BasicService {
                 $gt: baseBlockNum,
             },
         });
+
+        await TransactionModel.deleteMany({
+            blockNum: {
+                $gt: baseBlockNum,
+            },
+        });
+
+        await AccountPathModel.deleteMany({
+            blockNum: {
+                $gt: baseBlockNum,
+            },
+        });
+
+        this._accountPathsCache.deleteNewerThanBlockNum(baseBlockNum);
+    }
+
+    async _extractAccounts({ code, action, args }, accounts) {
+        const paths = await this._accountPathsCache.get(code, action);
+
+        if (!paths) {
+            return;
+        }
+
+        for (const path of paths) {
+            const account = args[path];
+
+            if (account) {
+                accounts[account] = true;
+            }
+        }
+    }
+
+    async _extractAndSaveAccountPaths(block) {
+        const accounts = {};
+
+        for (const transaction of block.transactions) {
+            for (const action of transaction.actions) {
+                if (
+                    action.code === 'cyber' &&
+                    action.receiver === 'cyber' &&
+                    action.action === 'setabi'
+                ) {
+                    const { account, entries } = this._extractAccountPaths(
+                        action,
+                        block.blockNum
+                    );
+
+                    accounts[account] = entries;
+                }
+            }
+        }
+
+        // const { account, entries } = this._extractAccountPaths(
+        //     {
+        //         receiver: 'cyber',
+        //         code: 'cyber',
+        //         action: 'setabi',
+        //         auth: [
+        //             {
+        //                 actor: 'tst2daaomswq',
+        //                 permission: 'active',
+        //             },
+        //         ],
+        //         args: {
+        //             account: 'tst2daaomswq',
+        //             abi:
+        //                 '1163796265727761793a3a6162692f312e3100060f70696e626c6f636b5f7265636f72640003076163636f756e74046e616d650770696e6e696e6704626f6f6c08626c6f636b696e6704626f6f6c0b6163636f756e746d6574610020047479706507737472696e673f0361707007737472696e673f05656d61696c07737472696e673f0570686f6e6507737472696e673f0866616365626f6f6b07737472696e673f09696e7374616772616d07737472696e673f0874656c656772616d07737472696e673f02766b07737472696e673f08776861747361707007737472696e673f0677656368617407737472696e673f077765627369746507737472696e673f0a66697273745f6e616d6507737472696e673f096c6173745f6e616d6507737472696e673f046e616d6507737472696e673f0a62697274685f6461746507737472696e673f0667656e64657207737472696e673f086c6f636174696f6e07737472696e673f046369747907737472696e673f0561626f757407737472696e673f0a6f636375706174696f6e07737472696e673f05695f63616e07737472696e673f0b6c6f6f6b696e675f666f7207737472696e673f11627573696e6573735f63617465676f727907737472696e673f106261636b67726f756e645f696d61676507737472696e673f0b636f7665725f696d61676507737472696e673f0d70726f66696c655f696d61676507737472696e673f0a757365725f696d61676507737472696e673f0b69636f5f6164647265737307737472696e673f0b7461726765745f6461746507737472696e673f0b7461726765745f706c616e07737472696e673f0e7461726765745f706f696e745f6107737472696e673f0e7461726765745f706f696e745f6207737472696e673f0370696e00020670696e6e6572046e616d650770696e6e696e67046e616d6505626c6f636b000207626c6f636b6572046e616d6508626c6f636b696e67046e616d650a7570646174656d6574610002076163636f756e74046e616d65046d6574610b6163636f756e746d6574610664656c6574650001076163636f756e74046e616d6506000000000000a6ab0370696e0000000080e9ead40370696e000000000088683c05626c6f636b00000000221acfd405626c6f636b0080c94aaa6c52d50a7570646174656d6574610080c94aaaaca24a0664656c657465000100000010d178a6ab0f70696e626c6f636b5f7265636f72640001000000c05f23ddad0101076163636f756e7403617363000000',
+        //         },
+        //     },
+        //     block.blockNum
+        // );
+        // accounts[account] = entries;
+
+        for (const account of Object.keys(accounts)) {
+            const entries = accounts[account];
+
+            try {
+                await AccountPathModel.insertMany(entries);
+                this._accountPathsCache.delete(account);
+            } catch (err) {
+                if (err.name === 'BulkWriteError' && err.code === 11000) {
+                    // Do nothing
+                } else {
+                    throw err;
+                }
+            }
+        }
+    }
+
+    _extractAccountPaths(action, blockNum) {
+        const { account, abi: hexAbi } = action.args;
+
+        const entries = [];
+
+        const buffer = Buffer.from(hexAbi, 'hex');
+        const abi = CyberwayClient.get().rawAbiToJson(buffer);
+
+        for (const { name, type } of abi.actions) {
+            const struct = abi.structs.find(({ name }) => name === type);
+
+            if (struct.base) {
+                Logger.error('Unsupported case, structure with base:', struct);
+            }
+
+            entries.push({
+                account,
+                blockNum,
+                action: name,
+                accountPaths: struct.fields
+                    .filter(field => field.type === 'name')
+                    .map(field => field.name),
+            });
+        }
+
+        return {
+            account,
+            entries,
+        };
     }
 
     async _extractAndSaveUsers(block) {
