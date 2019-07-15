@@ -14,7 +14,7 @@
   "license": "GPL-3.0",
   "dependencies": {
     "cyberwayjs": "^20.0.0-beta7",
-    "gls-core-service": "^3.46.0",
+    "gls-core-service": "^3.49.0",
     "ramda": "^0.26.1"
   },
   "devDependencies": {
