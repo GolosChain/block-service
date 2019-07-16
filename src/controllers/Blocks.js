@@ -107,7 +107,6 @@ class Blocks {
 
     async getBlockTransactions({
         blockId,
-        status,
         fromIndex,
         limit,
         code,
@@ -126,10 +125,6 @@ class Blocks {
             event,
         });
 
-        if (status && status !== 'all') {
-            query.status = status;
-        }
-
         if (fromIndex) {
             query.index = {
                 $gt: fromIndex,
@@ -139,11 +134,11 @@ class Blocks {
         const transactions = await TransactionModel.find(
             query,
             {
-                _id: 0,
-                id: 1,
-                index: 1,
-                status: 1,
-                stats: 1,
+                _id: false,
+                id: true,
+                index: true,
+                status: true,
+                stats: true,
             },
             {
                 sort: {
@@ -165,14 +160,14 @@ class Blocks {
                 id: transactionId,
             },
             {
-                _id: 0,
-                id: 1,
-                status: 1,
-                stats: 1,
-                blockId: 1,
-                blockNum: 1,
-                blockTime: 1,
-                actions: 1,
+                _id: false,
+                id: true,
+                status: true,
+                stats: true,
+                blockId: true,
+                blockNum: true,
+                blockTime: true,
+                actions: true,
             },
             {
                 lean: true,
@@ -213,18 +208,18 @@ class Blocks {
             const [block, transaction] = await Promise.all([
                 BlockModel.findOne(
                     { id: text },
-                    { _id: 0, id: 1, blockNum: 1, blockTime: 1 },
+                    { _id: false, id: true, blockNum: true, blockTime: true },
                     { lean: true }
                 ),
                 TransactionModel.findOne(
                     { id: text },
                     {
-                        _id: 0,
-                        id: 1,
-                        status: 1,
-                        blockId: 1,
-                        blockNum: 1,
-                        actionsCount: 1,
+                        _id: false,
+                        id: true,
+                        status: true,
+                        blockId: true,
+                        blockNum: true,
+                        actionsCount: true,
                     },
                     { lean: true }
                 ),
@@ -326,9 +321,7 @@ class Blocks {
         sequenceKey,
         limit,
     }) {
-        const query = {
-            status: 'executed',
-        };
+        const query = {};
 
         switch (type) {
             case 'all':

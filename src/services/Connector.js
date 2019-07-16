@@ -52,10 +52,6 @@ class Connector extends BasicConnector {
                             blockId: {
                                 type: 'string',
                             },
-                            status: {
-                                type: 'string',
-                                enum: ['all', 'executed', 'expired'],
-                            },
                             fromIndex: {
                                 type: 'number',
                             },

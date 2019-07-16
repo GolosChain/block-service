@@ -253,29 +253,27 @@ class Subscriber extends BasicService {
 
         if (transactions) {
             for (const transaction of transactions) {
-                tStats[transaction.status] = tStats[transaction.status] || 0;
-                tStats[transaction.status]++;
+                tStats[transaction.status] =
+                    (tStats[transaction.status] || 0) + 1;
 
-                if (transaction.status === 'executed') {
-                    stats.actions.count += transaction.actions.length;
+                stats.actions.count += transaction.actions.length;
 
-                    for (const action of transaction.actions) {
-                        if (
-                            action.code === 'cyber' &&
-                            action.action === 'newaccount'
-                        ) {
-                            stats.accounts.created++;
+                for (const action of transaction.actions) {
+                    if (
+                        action.code === 'cyber' &&
+                        action.action === 'newaccount'
+                    ) {
+                        stats.accounts.created++;
 
-                            const { args } = action;
+                        const { args } = action;
 
-                            newAccounts.push({
-                                id: args.name,
-                                keys: {
-                                    owner: args.owner,
-                                    active: args.active,
-                                },
-                            });
-                        }
+                        newAccounts.push({
+                            id: args.name,
+                            keys: {
+                                owner: args.owner,
+                                active: args.active,
+                            },
+                        });
                     }
                 }
             }
