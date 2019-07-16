@@ -170,6 +170,8 @@ class Blocks {
                 status: 1,
                 stats: 1,
                 blockId: 1,
+                blockNum: 1,
+                blockTime: 1,
                 actions: 1,
             },
             {
