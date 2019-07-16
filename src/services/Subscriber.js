@@ -122,9 +122,18 @@ class Subscriber extends BasicService {
 
         const { counters, newAccounts } = this._calcBlockCounters(
             block,
-            transactions,
-            parentBlock
+            transactions
         );
+
+        counters.transactions = block.counters;
+
+        const finalCounters = {
+            current: counters,
+            total: this._mergeStats(
+                parentBlock ? parentBlock.counters.total : null,
+                counters
+            ),
+        };
 
         const blockModel = new BlockModel({
             id: block.id,
@@ -134,7 +143,7 @@ class Subscriber extends BasicService {
             transactionIds: block.transactions.map(
                 transaction => transaction.id
             ),
-            counters,
+            counters: finalCounters,
             codes: Object.keys(blockIndexes.codes),
             actions: Object.keys(blockIndexes.actions),
             codeActions: Object.keys(blockIndexes.codeActions),
@@ -185,10 +194,11 @@ class Subscriber extends BasicService {
 
         await this._extractAndSaveAccountPaths(block);
 
-        // TODO: remove
-        console.log(
-            `new block ${block.blockNum} saved, seq: ${block.sequence}, trx: ${block.transactions.length}`
-        );
+        if (block.blockNum % 100 === 0) {
+            Logger.info(
+                `Block ${block.blockNum} processed, seq: ${block.sequence} (logging every 100th)`
+            );
+        }
     }
 
     async _saveTransactions(transactions) {
@@ -233,14 +243,10 @@ class Subscriber extends BasicService {
         }
     }
 
-    _calcBlockCounters(block, transactions, parentBlock) {
-        const stats = {
+    _calcBlockCounters(block, transactions) {
+        const counters = {
             accounts: {
                 created: 0,
-            },
-            transactions: {
-                executed: 0,
-                total: block.transactions.length,
             },
             actions: {
                 count: 0,
@@ -249,22 +255,17 @@ class Subscriber extends BasicService {
 
         const newAccounts = [];
 
-        const tStats = stats.transactions;
-
         if (transactions) {
             for (const transaction of transactions) {
-                tStats[transaction.status] = tStats[transaction.status] || 0;
-                tStats[transaction.status]++;
-
                 if (transaction.status === 'executed') {
-                    stats.actions.count += transaction.actions.length;
+                    counters.actions.count += transaction.actions.length;
 
                     for (const action of transaction.actions) {
                         if (
                             action.code === 'cyber' &&
                             action.action === 'newaccount'
                         ) {
-                            stats.accounts.created++;
+                            counters.accounts.created++;
 
                             const { args } = action;
 
@@ -282,13 +283,7 @@ class Subscriber extends BasicService {
         }
 
         return {
-            counters: {
-                current: stats,
-                total: this._mergeStats(
-                    parentBlock ? parentBlock.counters.total : null,
-                    stats
-                ),
-            },
+            counters,
             newAccounts,
         };
     }
