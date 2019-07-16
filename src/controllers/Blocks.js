@@ -45,7 +45,7 @@ class Blocks {
         this._addFilters(query, '', { code, action, actor, event });
 
         if (nonEmpty) {
-            query['counters.total.transactions'] = { $ne: 0 };
+            query['counters.current.transactions.executed'] = { $ne: 0 };
         }
 
         const blocks = await BlockModel.find(
