@@ -10,7 +10,11 @@ class AccountPathsCache {
     async get(account, action) {
         // TODO: remove
         if (account === 'cyber.token' && action === 'open') {
-            return ['owner'];
+            return [['owner']];
+        }
+
+        if (account === 'gls.publish' && action === 'upvote') {
+            return [['voter'], ['message_id', 'author']];
         }
 
         let accountCache = this._cache.get(account);

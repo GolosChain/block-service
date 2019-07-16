@@ -17,10 +17,12 @@ module.exports = MongoDB.makeModel(
             required: true,
         },
         accountPaths: [
-            {
-                type: String,
-                required: true,
-            },
+            [
+                {
+                    type: String,
+                    required: true,
+                },
+            ],
         ],
     },
     {

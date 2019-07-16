@@ -1,5 +1,5 @@
 const core = require('gls-core-service');
-const { splitEvery } = require('ramda');
+const { splitEvery, path: rPath } = require('ramda');
 const BasicService = core.services.Basic;
 const { Logger } = core.utils;
 const BlockSubscribe = core.services.BlockSubscribe;
@@ -405,7 +405,7 @@ class Subscriber extends BasicService {
         const accounts = {};
 
         for (const path of paths) {
-            const account = args[path];
+            const account = rPath(path, args);
 
             if (account) {
                 accounts[account] = true;
