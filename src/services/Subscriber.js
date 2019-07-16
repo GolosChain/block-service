@@ -368,29 +368,17 @@ class Subscriber extends BasicService {
     async _deleteInvalidEntries(baseBlockNum) {
         Logger.info(`Deleting all entries above block num: ${baseBlockNum}`);
 
-        await BlockModel.deleteMany({
+        const condition = {
             blockNum: {
                 $gt: baseBlockNum,
             },
-        });
+        };
 
-        await TransactionModel.deleteMany({
-            blockNum: {
-                $gt: baseBlockNum,
-            },
-        });
-
-        await TransactionModel.deleteMany({
-            blockNum: {
-                $gt: baseBlockNum,
-            },
-        });
-
-        await AccountPathModel.deleteMany({
-            blockNum: {
-                $gt: baseBlockNum,
-            },
-        });
+        await BlockModel.deleteMany(condition);
+        await TransactionModel.deleteMany(condition);
+        await TransactionModel.deleteMany(condition);
+        await AccountModel.deleteMany(condition);
+        await AccountPathModel.deleteMany(condition);
 
         this._accountPathsCache.deleteNewerThanBlockNum(baseBlockNum);
     }
