@@ -8,9 +8,11 @@ module.exports = MongoDB.makeModel(
             type: String,
             required: true,
         },
+        golosId: {
+            type: String,
+        },
         blockId: {
             type: String,
-            required: true,
         },
         blockNum: {
             type: Number,
@@ -18,7 +20,9 @@ module.exports = MongoDB.makeModel(
         },
         blockTime: {
             type: Date,
-            required: true,
+        },
+        registrationTime: {
+            type: Date,
         },
         keys: {
             type: Object,

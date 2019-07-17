@@ -326,6 +326,10 @@ class Blocks {
             };
         }
 
+        if (!account.keys) {
+            account.keys = {};
+        }
+
         return account;
     }
 

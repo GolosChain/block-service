@@ -496,6 +496,7 @@ class Subscriber extends BasicService {
                     blockId: block.id,
                     blockNum: block.blockNum,
                     blockTime: block.blockTime,
+                    registrationTime: block.blockTime,
                     id,
                     keys,
                 });
