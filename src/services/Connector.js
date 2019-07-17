@@ -87,6 +87,18 @@ class Connector extends BasicConnector {
                     scope: this._blocks,
                     validation: {},
                 },
+                getAccount: {
+                    handler: this._blocks.getAccount,
+                    scope: this._blocks,
+                    validation: {
+                        required: ['accountId'],
+                        properties: {
+                            accountId: {
+                                type: 'string',
+                            },
+                        },
+                    },
+                },
                 getAccountTransactions: {
                     handler: this._blocks.getAccountTransactions,
                     scope: this._blocks,
