@@ -2,11 +2,12 @@ const core = require('gls-core-service');
 const BasicConnector = core.services.Connector;
 
 class Connector extends BasicConnector {
-    constructor({ blocks, graphs }) {
+    constructor({ blocks, graphs, accounts }) {
         super();
 
         this._blocks = blocks;
         this._graphs = graphs;
+        this._accounts = accounts;
     }
 
     async start() {
@@ -87,9 +88,21 @@ class Connector extends BasicConnector {
                     scope: this._blocks,
                     validation: {},
                 },
+                getAccounts: {
+                    handler: this._accounts.getAccounts,
+                    scope: this._accounts,
+                    inherits: ['limit'],
+                    validation: {
+                        properties: {
+                            prefix: {
+                                type: 'string',
+                            },
+                        },
+                    },
+                },
                 getAccount: {
-                    handler: this._blocks.getAccount,
-                    scope: this._blocks,
+                    handler: this._accounts.getAccount,
+                    scope: this._accounts,
                     validation: {
                         required: ['accountId'],
                         properties: {

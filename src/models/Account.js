@@ -21,6 +21,11 @@ module.exports = MongoDB.makeModel(
         blockTime: {
             type: Date,
         },
+        reputation: {
+            type: Number,
+            default: 0,
+            required: true,
+        },
         registrationTime: {
             type: Date,
         },

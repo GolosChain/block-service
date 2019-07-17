@@ -3,6 +3,7 @@ const BasicMain = core.services.BasicMain;
 const env = require('./data/env');
 const Blocks = require('./controllers/Blocks');
 const Graphs = require('./controllers/Graphs');
+const Accounts = require('./controllers/Accounts');
 const Connector = require('./services/Connector');
 const ServiceMetaModel = require('./models/ServiceMeta');
 
@@ -14,10 +15,12 @@ class ApiMain extends BasicMain {
 
         this._blocks = new Blocks();
         this._graphs = new Graphs();
+        this._accounts = new Accounts();
 
         this._connector = new Connector({
             blocks: this._blocks,
             graphs: this._graphs,
+            accounts: this._accounts,
         });
 
         this.addNested(this._connector);

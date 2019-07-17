@@ -42,7 +42,7 @@ class GenesisContent {
     async finish() {}
 
     _handleAccount(data) {
-        const { owner: userId, name, created } = data;
+        const { owner: userId, name, reputation, created } = data;
 
         let registrationTime = null;
 
@@ -56,6 +56,7 @@ class GenesisContent {
             blockNum: 1,
             blockTime: null,
             blockId: null,
+            reputation,
             registrationTime,
             keys: {},
         });

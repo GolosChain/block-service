@@ -2,7 +2,6 @@ const env = require('../data/env');
 
 const BlockModel = require('../models/Block');
 const TransactionModel = require('../models/Transaction');
-const AccountModel = require('../models/Account');
 const ServiceMetaModel = require('../models/ServiceMeta');
 
 class Blocks {
@@ -310,27 +309,6 @@ class Blocks {
         if (event) {
             query[`${prefix}eventNames`] = event;
         }
-    }
-
-    async getAccount({ accountId }) {
-        const account = await AccountModel.findOne(
-            { id: accountId },
-            { id: true, blockId: true, keys: true },
-            { lean: true }
-        );
-
-        if (!account) {
-            throw {
-                code: 404,
-                message: 'Account not found',
-            };
-        }
-
-        if (!account.keys) {
-            account.keys = {};
-        }
-
-        return account;
     }
 
     async getAccountTransactions({
