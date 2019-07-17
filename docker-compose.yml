@@ -19,6 +19,23 @@ services:
   blocks-node:
     container_name: blocks-node
     restart: always
+
+    depends_on:
+      blocks-mongo:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: Dockerfile
+    networks:
+      - services-tier
+    env_file:
+      - .env
+
+  blocks-api-node:
+    container_name: blocks-api-node
+    environment:
+      - GLS_API=true
+    restart: always
     depends_on:
       blocks-mongo:
         condition: service_healthy
@@ -29,7 +46,7 @@ services:
       - services-tier
     ports:
       - $GLS_CONNECTOR_HOST:$GLS_CONNECTOR_PORT:$GLS_CONNECTOR_PORT
-      - $GLS_METRICS_HOST:$GLS_METRICS_PORT:$GLS_METRICS_PORT
+      - $GLS_METRICS_HOST:$GLS_API_METRICS_PORT:$GLS_API_METRICS_PORT
     env_file:
       - .env
 
