@@ -9,7 +9,6 @@ class Graphs {
         const hourAgo = new Date(now);
 
         const interval = 3600 / POINTS_IN_HOUR;
-        const factor = interval / 60;
 
         hourAgo.setSeconds(hourAgo.getSeconds() - POINTS_IN_HOUR * interval);
 
@@ -43,7 +42,7 @@ class Graphs {
 
         stats.reverse();
 
-        stats = stats.map(count => Math.round(count / factor));
+        stats = stats.map(count => Math.round(count / interval));
 
         return {
             from: hourAgo,
