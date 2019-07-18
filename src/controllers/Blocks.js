@@ -2,7 +2,14 @@ const env = require('../data/env');
 
 const BlockModel = require('../models/Block');
 const TransactionModel = require('../models/Transaction');
+const AccountModel = require('../models/Account');
 const ServiceMetaModel = require('../models/ServiceMeta');
+
+const accountsProjection = {
+    _id: false,
+    id: true,
+    golosId: true,
+};
 
 class Blocks {
     constructor() {
@@ -187,6 +194,8 @@ class Blocks {
     }
 
     async findEntity({ text }) {
+        const blocks = [];
+
         if (/^\d+$/.test(text)) {
             const blockNum = parseInt(text, 10);
 
@@ -197,12 +206,25 @@ class Blocks {
             );
 
             if (block) {
-                return {
+                blocks.push({
                     type: 'block',
                     data: block,
-                };
+                });
             }
         }
+
+        const [items, accounts] = await Promise.all([
+            this._findBlockOrTransaction(text),
+            this._findAccounts(text),
+        ]);
+
+        return {
+            items: blocks.concat(items).concat(accounts),
+        };
+    }
+
+    async _findBlockOrTransaction(text) {
+        const items = [];
 
         if (text.length === 64 && /^[a-f0-9]+$/.test(text)) {
             const [block, transaction] = await Promise.all([
@@ -226,24 +248,61 @@ class Blocks {
             ]);
 
             if (block) {
-                return {
+                items.push({
                     type: 'block',
                     data: block,
-                };
+                });
             }
 
             if (transaction) {
-                return {
+                items.push({
                     type: 'transaction',
                     data: transaction,
-                };
+                });
             }
         }
 
-        return {
-            type: null,
-            data: null,
-        };
+        return items;
+    }
+
+    async _findAccounts(prefix) {
+        const [accounts, golosAccounts] = await Promise.all([
+            AccountModel.find(
+                {
+                    id: {
+                        $regex: `^${prefix}`,
+                    },
+                },
+                accountsProjection,
+                {
+                    lean: true,
+                    limit: 5,
+                    sort: {
+                        id: 1,
+                    },
+                }
+            ),
+            AccountModel.find(
+                {
+                    golosId: {
+                        $regex: `^${prefix}`,
+                    },
+                },
+                accountsProjection,
+                {
+                    lean: true,
+                    limit: 5,
+                    sort: {
+                        golosId: 1,
+                    },
+                }
+            ),
+        ]);
+
+        return accounts.concat(golosAccounts).map(account => ({
+            type: 'account',
+            data: account,
+        }));
     }
 
     async getBlockChainInfo() {

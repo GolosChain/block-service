@@ -88,18 +88,6 @@ class Connector extends BasicConnector {
                     scope: this._blocks,
                     validation: {},
                 },
-                getAccounts: {
-                    handler: this._accounts.getAccounts,
-                    scope: this._accounts,
-                    inherits: ['limit'],
-                    validation: {
-                        properties: {
-                            prefix: {
-                                type: 'string',
-                            },
-                        },
-                    },
-                },
                 getAccount: {
                     handler: this._accounts.getAccount,
                     scope: this._accounts,
