@@ -33,7 +33,7 @@ class Main extends BasicMain {
 
         const meta = await this._getMeta();
 
-        if (!meta.isGenesisApplied) {
+        if (!meta.isGenesisApplied && !env.GLS_SKIP_GENESIS) {
             await this._processGenesis();
             return;
         }
