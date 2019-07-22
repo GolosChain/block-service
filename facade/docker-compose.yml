@@ -1,0 +1,10 @@
+version: '3.6'
+services:
+  node:
+    image: cyberway/block-explorer-service:0.1.0
+    container_name: block-explorer-node
+    restart: always
+    ports:
+      - $GLS_CONNECTOR_HOST:$GLS_CONNECTOR_PORT:$GLS_CONNECTOR_PORT
+    env_file:
+      - .env
