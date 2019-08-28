@@ -1,5 +1,5 @@
 const core = require('gls-core-service');
-const { splitEvery } = require('ramda');
+const { chunk: chunkSplit } = require('lodash');
 const BasicService = core.services.Basic;
 const { Logger } = core.utils;
 const BlockSubscribe = core.services.BlockSubscribe;
@@ -193,7 +193,7 @@ class Subscriber extends BasicService {
     }
 
     async _saveTransactions(transactions) {
-        const chunks = splitEvery(100, transactions);
+        const chunks = chunkSplit(transactions, 100);
 
         for (const chunk of chunks) {
             await TransactionModel.insertMany(chunk);

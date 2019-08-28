@@ -1,3 +1,5 @@
+const { flatMap } = require('lodash');
+
 function extractByPath(data, path) {
     const [field, ...rest] = path;
     const value = data[field];
@@ -8,13 +10,7 @@ function extractByPath(data, path) {
 
     if (Array.isArray(value)) {
         if (rest.length) {
-            const values = [];
-
-            for (const v of value) {
-                values.push(...extractByPath(v, rest));
-            }
-
-            return values;
+            return flatMap(value, v => extractByPath(v, rest));
         } else {
             return value;
         }
