@@ -8,9 +8,54 @@ class AccountPathsCache {
     }
 
     async get(account, action) {
-        // TODO: remove
-        if (account === 'cyber.token' && action === 'open') {
-            return [['owner']];
+        if (account === 'gls.vesting') {
+            switch (action) {
+                case 'withdraw':
+                    return [['from'], ['to']];
+                default:
+                // Do nothing
+            }
+        }
+
+        if (account === 'cyber.token') {
+            switch (action) {
+                case 'open':
+                case 'claim':
+                case 'close':
+                    return [['owner']];
+                case 'create':
+                    return [['issuer']];
+                case 'issue':
+                    return [['to']];
+                case 'transfer':
+                case 'payment':
+                    return [['from'], ['to']];
+                case 'bulkpayment':
+                    return [['from'], ['recipients', 'to']];
+                default:
+                // Do nothing
+            }
+        }
+
+        if (account === 'cyber.stake') {
+            switch (action) {
+                case 'open':
+                    return [['owner'], ['ram_payer']];
+                case 'delegatevote':
+                case 'recallvote':
+                case 'delegateuse':
+                case 'recalluse':
+                case 'claim':
+                    return [['grantor_name'], ['recipient_name']];
+                case 'withdraw':
+                case 'setkey':
+                case 'updatefunds':
+                    return [['account']];
+                case 'pick':
+                    return [['accounts']];
+                default:
+                // Do nothing
+            }
         }
 
         if (account === 'gls.publish' && action === 'upvote') {

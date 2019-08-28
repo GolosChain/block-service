@@ -1,5 +1,5 @@
 const core = require('gls-core-service');
-const { splitEvery, path: rPath } = require('ramda');
+const { splitEvery } = require('ramda');
 const BasicService = core.services.Basic;
 const { Logger } = core.utils;
 const BlockSubscribe = core.services.BlockSubscribe;
@@ -11,6 +11,7 @@ const AccountPathModel = require('../models/AccountPath');
 const AccountModel = require('../models/Account');
 const CyberwayClient = require('../utils/Cyberway');
 const AccountPathsCache = require('../utils/AccountPathsCache');
+const { extractByPath } = require('../utils/common');
 
 class Subscriber extends BasicService {
     async start() {
@@ -382,18 +383,41 @@ class Subscriber extends BasicService {
     }
 
     async _extractAccounts({ code, action, args }) {
+        const accounts = {};
+
+        if (code === 'cyber.token') {
+            switch (action) {
+                case 'bulktransfer':
+                    accounts[args.from] = true;
+
+                    for (const { memo } of args.recipients) {
+                        const match = memo.match(/^send to: ([a-z0-5.]+);/);
+
+                        if (!match) {
+                            Logger.warn(
+                                'bulktransfer without account in memo:',
+                                args
+                            );
+                            continue;
+                        }
+
+                        accounts[match[1]] = true;
+                    }
+
+                    return accounts;
+            }
+        }
+
         const paths = await this._accountPathsCache.get(code, action);
 
         if (!paths) {
             return {};
         }
 
-        const accounts = {};
-
         for (const path of paths) {
-            const account = rPath(path, args);
+            const accountsList = extractByPath(args, path);
 
-            if (account) {
+            for (const account of accountsList) {
                 accounts[account] = true;
             }
         }
