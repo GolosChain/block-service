@@ -384,18 +384,14 @@ class Subscriber extends BasicService {
                 case 'bulktransfer':
                     accounts[args.from] = true;
 
-                    for (const { memo } of args.recipients) {
+                    for (const { to, memo } of args.recipients) {
+                        accounts[to] = true;
+
                         const match = memo.match(/^send to: ([a-z0-5.]+);/);
 
-                        if (!match) {
-                            Logger.warn(
-                                'bulktransfer without account in memo:',
-                                args
-                            );
-                            continue;
+                        if (match) {
+                            accounts[match[1]] = true;
                         }
-
-                        accounts[match[1]] = true;
                     }
 
                     return accounts;
