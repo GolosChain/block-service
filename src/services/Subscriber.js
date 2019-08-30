@@ -375,7 +375,6 @@ class Subscriber extends BasicService {
 
         await BlockModel.deleteMany(condition);
         await TransactionModel.deleteMany(condition);
-        await TransactionModel.deleteMany(condition);
         await AccountModel.deleteMany(condition);
         await AccountPathModel.deleteMany(condition);
 
@@ -435,12 +434,20 @@ class Subscriber extends BasicService {
                     action.receiver === 'cyber' &&
                     action.action === 'setabi'
                 ) {
-                    const { account, entries } = this._extractAccountPaths(
-                        action,
-                        block.blockNum
-                    );
+                    try {
+                        const { account, entries } = this._extractAccountPaths(
+                            action,
+                            block.blockNum
+                        );
 
-                    accounts[account] = entries;
+                        accounts[account] = entries;
+                    } catch (err) {
+                        Logger.error(
+                            `Can't process contact abi.`,
+                            { blockNum: block.blockNum },
+                            err
+                        );
+                    }
                 }
             }
         }
