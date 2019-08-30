@@ -185,11 +185,6 @@ class Subscriber extends BasicService {
         );
 
         await this._extractAndSaveAccountPaths(block);
-
-        // TODO: remove
-        console.log(
-            `new block ${block.blockNum} saved, seq: ${block.sequence}, trx: ${block.transactions.length}`
-        );
     }
 
     async _saveTransactions(transactions) {
