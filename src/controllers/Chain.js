@@ -11,6 +11,10 @@ class Chain {
             updateTime: updateTime,
         };
     }
+
+    async getValidators() {
+        return await this._dataActualizer.getValidators()
+    }
 }
 
 module.exports = Chain;
