@@ -138,6 +138,11 @@ class Connector extends BasicConnector {
                     scope: this._chain,
                     validation: {},
                 },
+                getValidators: {
+                    handler: this._chain.getValidators,
+                    scope: this._chain,
+                    validation: {},
+                },
             },
             serverDefaults: {
                 parents: {
