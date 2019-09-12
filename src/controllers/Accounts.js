@@ -21,16 +21,16 @@ class Accounts {
 
         if (!account) {
             // There can be no info about account creation (if genesis skipped), but other info can exist
-            account = {id: accountId};
+            account = { id: accountId };
         }
 
         if (!account.keys) {
             account.keys = {};
         }
 
-        account.tokens = tokens;
-
-        account.grants = await this._dataActualizer.getGrants({account: accountId});
+        account.grants = await this._dataActualizer.getGrants({
+            account: accountId,
+        });
 
         return account;
     }
