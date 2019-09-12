@@ -1,8 +1,12 @@
 const AccountModel = require('../models/Account');
 
 class Accounts {
+    constructor({ dataActualizer }) {
+        this._dataActualizer = dataActualizer;
+    }
+
     async getAccount({ accountId }) {
-        const account = await AccountModel.findOne(
+        let account = await AccountModel.findOne(
             { id: accountId },
             {
                 _id: false,
@@ -16,15 +20,17 @@ class Accounts {
         );
 
         if (!account) {
-            throw {
-                code: 404,
-                message: 'Account not found',
-            };
+            // There can be no info about account creation (if genesis skipped), but other info can exist
+            account = { id: accountId };
         }
 
         if (!account.keys) {
             account.keys = {};
         }
+
+        account.grants = await this._dataActualizer.getGrants({
+            account: accountId,
+        });
 
         return account;
     }

@@ -1,10 +1,11 @@
-const core = require('gls-core-service');
 const fetch = require('node-fetch');
-const env = require('../data/env');
+const core = require('gls-core-service');
 const BasicService = core.services.Basic;
 const { Logger } = core.utils;
+const env = require('../data/env');
 
 const REFRESH_INTERVAL = 60 * 1000;
+const ACCOUNTS_CACHE_EXPIRE = 2 * 60 * 1000;
 
 class DataActualizer extends BasicService {
     async start() {
@@ -14,9 +15,12 @@ class DataActualizer extends BasicService {
         this._producers = [];
         this._producersUpdateTime = null;
         this._usernamesCache = {}; // username cache for golos domain
+        this._grantsCache = {};
 
         await this._refreshData();
+
         setInterval(this._refreshData.bind(this), REFRESH_INTERVAL);
+        setInterval(this._clearCache.bind(this), REFRESH_INTERVAL);
     }
 
     getProducers() {
@@ -70,6 +74,54 @@ class DataActualizer extends BasicService {
         return usernames;
     }
 
+    async getGrants({ account }) {
+        const now = Date.now();
+        let grants = this._grantsCache[account];
+
+        if (!grants || now - grants.updateTime > ACCOUNTS_CACHE_EXPIRE) {
+            const data = await this._callChainApi({
+                endpoint: 'get_table_rows',
+                args: {
+                    code: '',
+                    scope: '',
+                    table: 'stake.grant',
+                    index: 'bykey',
+                    limit: 30,
+                    lower_bound: {
+                        token_code: 'CYBER',
+                        grantor_name: account,
+                        recipient_name: '',
+                    },
+                    upper_bound: {
+                        token_code: 'CYBER',
+                        grantor_name: account,
+                        recipient_name: 'zzzzzzzzzzzz',
+                    },
+                },
+            });
+
+            grants = {
+                updateTime: new Date(now),
+                items: data.rows
+                    .filter(
+                        grant =>
+                            grant.token_code === 'CYBER' &&
+                            grant.grantor_name === account &&
+                            grant.share > 0
+                    )
+                    .map(({ recipient_name }) => ({
+                        accountId: recipient_name,
+                    })),
+            };
+
+            await this.addUsernames(grants.items, 'accountId');
+
+            this._grantsCache[account] = grants;
+        }
+
+        return grants;
+    }
+
     async getValidators() {
         return {
             items: this._validators,
@@ -112,7 +164,7 @@ class DataActualizer extends BasicService {
             });
 
             this._producersUpdateTime = new Date();
-            let prods = data.active.producers;
+            const prods = data.active.producers;
 
             await this.addUsernames(prods, 'producer_name');
 
@@ -176,6 +228,16 @@ class DataActualizer extends BasicService {
             this._validatorsUpdateTime = new Date();
         } catch (err) {
             Logger.error('DataActualizer tick failed:', err);
+        }
+    }
+
+    _clearCache() {
+        const now = Date.now();
+
+        for (const [accountId, grants] of Object.entries(this._grantsCache)) {
+            if (now - grants.updateTime > ACCOUNTS_CACHE_EXPIRE) {
+                delete this._grantsCache[accountId];
+            }
         }
     }
 }
