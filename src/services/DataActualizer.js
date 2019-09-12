@@ -3,7 +3,6 @@ const core = require('gls-core-service');
 const BasicService = core.services.Basic;
 const { Logger } = core.utils;
 const env = require('../data/env');
-const AccountModel = require('../models/Account');
 
 const REFRESH_INTERVAL = 60 * 1000;
 const ACCOUNTS_CACHE_EXPIRE = 2 * 60 * 1000;
@@ -107,7 +106,8 @@ class DataActualizer extends BasicService {
                     .filter(
                         grant =>
                             grant.token_code === 'CYBER' &&
-                            grant.grantor_name === account
+                            grant.grantor_name === account &&
+                            grant.share > 0
                     )
                     .map(({ recipient_name }) => ({
                         accountId: recipient_name,
