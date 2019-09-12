@@ -21,7 +21,9 @@ class ApiMain extends BasicMain {
 
         this._blocks = new Blocks();
         this._graphs = new Graphs();
-        this._accounts = new Accounts();
+        this._accounts = new Accounts({
+            dataActualizer: this._actualizer,
+        });
         this._chain = new Chain({
             dataActualizer: this._actualizer,
         });

@@ -5,6 +5,7 @@ const BasicService = core.services.Basic;
 const { Logger } = core.utils;
 
 const REFRESH_INTERVAL = 60 * 1000;
+const ACCOUNTS_CACHE_EXPIRE = 2 * 60 * 1000;
 
 class DataActualizer extends BasicService {
     async start() {
@@ -14,6 +15,7 @@ class DataActualizer extends BasicService {
         this._producers = [];
         this._producersUpdateTime = null;
         this._usernamesCache = {}; // username cache for golos domain
+        this._grantsCache = {};
 
         await this._refreshData();
         setInterval(this._refreshData.bind(this), REFRESH_INTERVAL);
@@ -68,6 +70,42 @@ class DataActualizer extends BasicService {
             }
         }
         return usernames;
+    }
+
+    async getGrants({account}) {
+        let grants = this._grantsCache[account];
+        const now = new Date();
+        if (grants && now - grants.updateTime < ACCOUNTS_CACHE_EXPIRE) {    // TODO: autoclean expired
+            return grants;
+        }
+        const data = await this.callChainApi({
+            endpoint: 'get_table_rows',
+            args: {
+                code: "",
+                scope: "",
+                table: "stake.grant",
+                index: "bykey",
+                limit: 30,
+                lower_bound: {
+                    token_code: "CYBER",
+                    grantor_name: account,
+                    recipient_name: ""
+                },
+                upper_bound: {
+                    token_code: "CYBER",
+                    grantor_name: account,
+                    recipient_name: "zzzzzzzzzzzz"
+                }
+            }
+        });
+        grants = {
+            updateTime: now,
+            items: data.rows.filter(grant => {
+                return grant.token_code === "CYBER" && grant.grantor_name === account;
+            })
+        };
+        this._grantsCache[account] = grants;
+        return grants;
     }
 
     async getValidators() {
