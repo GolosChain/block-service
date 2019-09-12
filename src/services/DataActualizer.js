@@ -1,8 +1,9 @@
-const core = require('gls-core-service');
 const fetch = require('node-fetch');
-const env = require('../data/env');
+const core = require('gls-core-service');
 const BasicService = core.services.Basic;
 const { Logger } = core.utils;
+const env = require('../data/env');
+const AccountModel = require('../models/Account');
 
 const REFRESH_INTERVAL = 60 * 1000;
 const ACCOUNTS_CACHE_EXPIRE = 2 * 60 * 1000;
@@ -101,13 +102,19 @@ class DataActualizer extends BasicService {
             });
 
             grants = {
-                updateTime: now,
-                items: data.rows.filter(
-                    grant =>
-                        grant.token_code === 'CYBER' &&
-                        grant.grantor_name === account
-                ),
+                updateTime: new Date(now),
+                items: data.rows
+                    .filter(
+                        grant =>
+                            grant.token_code === 'CYBER' &&
+                            grant.grantor_name === account
+                    )
+                    .map(({ recipient_name }) => ({
+                        accountId: recipient_name,
+                    })),
             };
+
+            await this.addUsernames(grants.items, 'accountId');
 
             this._grantsCache[account] = grants;
         }
