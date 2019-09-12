@@ -78,41 +78,39 @@ class DataActualizer extends BasicService {
         const now = Date.now();
         let grants = this._grantsCache[account];
 
-        if (grants && now - grants.updateTime < ACCOUNTS_CACHE_EXPIRE) {
-            return grants;
+        if (!grants || now - grants.updateTime > ACCOUNTS_CACHE_EXPIRE) {
+            const data = await this._callChainApi({
+                endpoint: 'get_table_rows',
+                args: {
+                    code: '',
+                    scope: '',
+                    table: 'stake.grant',
+                    index: 'bykey',
+                    limit: 30,
+                    lower_bound: {
+                        token_code: 'CYBER',
+                        grantor_name: account,
+                        recipient_name: '',
+                    },
+                    upper_bound: {
+                        token_code: 'CYBER',
+                        grantor_name: account,
+                        recipient_name: 'zzzzzzzzzzzz',
+                    },
+                },
+            });
+
+            grants = {
+                updateTime: now,
+                items: data.rows.filter(
+                    grant =>
+                        grant.token_code === 'CYBER' &&
+                        grant.grantor_name === account
+                ),
+            };
+
+            this._grantsCache[account] = grants;
         }
-
-        const data = await this._callChainApi({
-            endpoint: 'get_table_rows',
-            args: {
-                code: '',
-                scope: '',
-                table: 'stake.grant',
-                index: 'bykey',
-                limit: 30,
-                lower_bound: {
-                    token_code: 'CYBER',
-                    grantor_name: account,
-                    recipient_name: '',
-                },
-                upper_bound: {
-                    token_code: 'CYBER',
-                    grantor_name: account,
-                    recipient_name: 'zzzzzzzzzzzz',
-                },
-            },
-        });
-
-        grants = {
-            updateTime: now,
-            items: data.rows.filter(
-                grant =>
-                    grant.token_code === 'CYBER' &&
-                    grant.grantor_name === account
-            ),
-        };
-
-        this._grantsCache[account] = grants;
 
         return grants;
     }
@@ -159,7 +157,7 @@ class DataActualizer extends BasicService {
             });
 
             this._producersUpdateTime = new Date();
-            let prods = data.active.producers;
+            const prods = data.active.producers;
 
             await this.addUsernames(prods, 'producer_name');
 
