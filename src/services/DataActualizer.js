@@ -74,6 +74,10 @@ class DataActualizer extends BasicService {
         return usernames;
     }
 
+    async getInfo() {
+        return await this._callChainApi({ endpoint: 'get_info' });
+    }
+
     async getGrants({ account }) {
         const now = Date.now();
         let grants = this._grantsCache[account];
@@ -122,13 +126,42 @@ class DataActualizer extends BasicService {
         return grants;
     }
 
-    async getValidators() {
+    getValidators() {
         return {
             items: this._validators,
             updateTime: this._validatorsUpdateTime,
             totalStaked: this._stakeStat.total_staked,
             totalVotes: this._stakeStat.total_votes,
         };
+    }
+
+    async getAgent(account) {
+        const data = await this._callChainApi({
+            endpoint: 'get_table_rows',
+            args: {
+                code: '',
+                scope: '',
+                table: 'stake.agent',
+                index: 'bykey',
+                limit: 1,
+                lower_bound: {
+                    token_code: 'CYBER',
+                    account,
+                },
+            },
+        });
+        const agent = data.rows.filter(
+            agent => agent.account === account && agent.token_code === 'CYBER'
+        ).map(
+            agent => ({
+                account,
+                symbol: agent.token_code,
+                fee: agent.fee,
+                proxyLevel: agent.proxy_level,
+                minStake: agent.min_own_staked,
+            })
+        )[0];
+        return agent;
     }
 
     async _callChainApi({ endpoint, args }) {
@@ -217,7 +250,7 @@ class DataActualizer extends BasicService {
                 .map(candidate => ({
                     account: candidate.account,
                     enabled: candidate.enabled,
-                    latestPick: candidate.latest_pick,
+                    latestPick: candidate.latest_pick + 'Z',
                     signKey: candidate.signing_key,
                     votes: candidate.votes,
                     username: candidate.username,

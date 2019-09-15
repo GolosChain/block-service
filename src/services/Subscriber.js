@@ -9,6 +9,8 @@ const ServiceMetaModel = require('../models/ServiceMeta');
 const TransactionModel = require('../models/Transaction');
 const AccountPathModel = require('../models/AccountPath');
 const AccountModel = require('../models/Account');
+const TokenBalanceModel = require('../models/TokenBalance');
+const StakeAgentModel = require('../models/StakeAgent');
 const CyberwayClient = require('../utils/Cyberway');
 const AccountPathsCache = require('../utils/AccountPathsCache');
 const { extractByPath } = require('../utils/common');
@@ -121,7 +123,7 @@ class Subscriber extends BasicService {
             );
         }
 
-        const { counters, newAccounts } = this._calcBlockCounters(
+        const { counters, storage } = this._calcBlockCounters(
             block,
             transactions,
             parentBlock
@@ -170,9 +172,7 @@ class Subscriber extends BasicService {
             await this._extractAndSaveUsers(block);
         }
 
-        if (newAccounts.length) {
-            await this._saveNewAccounts(newAccounts, block);
-        }
+        await this._saveStorage(storage, block);
 
         await ServiceMetaModel.updateOne(
             {},
@@ -229,6 +229,69 @@ class Subscriber extends BasicService {
         }
     }
 
+    _emptyActionHandler(action) {
+        Logger.log('Action:', action);
+    }
+
+    _newAccountAction(action, storage, stats) {
+        stats.accounts.created++;
+
+        const { args } = action;
+
+        storage.newAccounts.push({
+            id: args.name,
+            keys: {
+                owner: args.owner,
+                active: args.active,
+            },
+        });
+    }
+
+    _updateAgentAction(action, storage) {
+        const { args } = action;
+        const { account, token_code } = args;
+
+        if (!account || !token_code) {
+            return;
+        }
+
+        const key = `${account} ${token_code}`;
+
+        if (!storage.agents[key]) {
+            storage.agents[key] = {};
+        }
+
+        const agent = storage.agents[key];
+
+        switch (action.action) {
+            case 'setproxyfee':
+                agent.fee = args.fee;
+                break;
+            case 'setproxylvl':
+                agent.proxyLevel = args.level;
+                break;
+            case 'setminstaked':
+                agent.minStake = args.min_own_staked;
+                break;
+            default:
+                Logger.warn(`Wrong action ${action.action} passed to _updateAgentAction`)
+        }
+    }
+
+    _updateBalanceEvent(event, storage) {
+        const { account, balance, payments } = event.args;
+        const symbol = balance.split(' ')[1];
+        const key = `${account} ${symbol}`;
+
+        storage.balances[key] = {
+            account,
+            symbol,
+            balance,
+            payments,
+        };
+    }
+
+    // TODO: rename
     _calcBlockCounters(block, transactions, parentBlock) {
         const stats = {
             accounts: {
@@ -243,7 +306,11 @@ class Subscriber extends BasicService {
             },
         };
 
-        const newAccounts = [];
+        const storage = {
+            newAccounts: [],
+            balances: {},       // updates if several balance changes in one block
+            agents: {},         // updates if several fields of agent changed in one block
+        };
 
         const tStats = stats.transactions;
 
@@ -254,22 +321,41 @@ class Subscriber extends BasicService {
 
                 stats.actions.count += transaction.actions.length;
 
+                const handlers = {
+                    'cyber': {
+                        newaccount: this._newAccountAction,
+                    },
+                    'cyber.stake': {
+                        setproxyfee: this._updateAgentAction,
+                        setproxylvl: this._updateAgentAction,
+                        setminstaked: this._updateAgentAction,
+                        setkey: this._emptyActionHandler,
+                    },
+                    'cyber.token': {
+                        EVENTS: {
+                            balance: this._updateBalanceEvent,
+                        },
+                    },
+                };
+
                 for (const action of transaction.actions) {
-                    if (
-                        action.code === 'cyber' &&
-                        action.action === 'newaccount'
-                    ) {
-                        stats.accounts.created++;
-
-                        const { args } = action;
-
-                        newAccounts.push({
-                            id: args.name,
-                            keys: {
-                                owner: args.owner,
-                                active: args.active,
-                            },
-                        });
+                    const contractHandlers = handlers[action.code];
+                    if (contractHandlers) {
+                        const handler = contractHandlers[action.action];
+                        if (handler) {
+                            handler(action, storage, stats);
+                        }
+                        const eventsHandlers = contractHandlers.EVENTS;
+                        if (eventsHandlers) {
+                            for (const event of action.events) {
+                                if (event.code !== action.code)
+                                    continue;   // not required for now
+                                const handler = eventsHandlers[event.event];
+                                if (handler) {
+                                    handler(event, storage, stats);
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -283,7 +369,7 @@ class Subscriber extends BasicService {
                     stats
                 ),
             },
-            newAccounts,
+            storage,
         };
     }
 
@@ -372,6 +458,8 @@ class Subscriber extends BasicService {
         await TransactionModel.deleteMany(condition);
         await AccountModel.deleteMany(condition);
         await AccountPathModel.deleteMany(condition);
+        await TokenBalanceModel.deleteMany(condition);
+        await StakeAgentModel.deleteMany(condition);
 
         this._accountPathsCache.deleteNewerThanBlockNum(baseBlockNum);
     }
@@ -511,6 +599,16 @@ class Subscriber extends BasicService {
         };
     }
 
+    async _saveStorage(storage, block) {
+        const { newAccounts, agents, balances } = storage;
+
+        if (newAccounts.length) {
+            await this._saveNewAccounts(newAccounts, block);
+        }
+        await this._saveAgentUpdates(agents, block.blockNum);
+        await this._saveBalanceUpdates(balances, block.blockNum);
+    }
+
     async _saveNewAccounts(accounts, block) {
         await Promise.all(
             accounts.map(async ({ id, keys }) => {
@@ -527,6 +625,77 @@ class Subscriber extends BasicService {
                     await accountModel.save();
                 } catch (err) {
                     // В случае дубликации ничего не делаем.
+                    if (!(err.name === 'MongoError' && err.code === 11000)) {
+                        throw err;
+                    }
+                }
+            })
+        );
+    }
+
+    async _saveBalanceUpdates(balances, blockNum) {
+        if (Object.keys(balances).length === 0)
+            return;
+        await Promise.all(
+            Object.values(balances).map(async ({ account, symbol, balance, payments }) => {
+                const balanceModel = new TokenBalanceModel({
+                    blockNum,
+                    account,
+                    symbol,
+                    balance,
+                    payments,
+                });
+
+                try {
+                    await balanceModel.save();
+                } catch (err) {
+                    if (!(err.name === 'MongoError' && err.code === 11000)) {
+                        throw err;
+                    }
+                }
+            })
+        );
+    }
+
+    async _saveAgentUpdates(agents, blockNum) {
+        if (Object.keys(agents).length === 0)
+            return;
+        await Promise.all(
+            Object.keys(agents).map(async (key) => {
+                const [ account, symbol ] = key.split(' ');
+                const value = agents[key];
+
+                const previous = await StakeAgentModel.findOne(
+                    {
+                        account,
+                        symbol
+                    },
+                    {},
+                    {
+                        sort: { blockNum: -1 },
+                        lean: true,
+                    }
+                );
+
+                let agent = {};
+                if (previous) {
+                    Object.assign(agent, previous);
+                }
+                Object.assign(agent, value);
+
+                const { fee, proxyLevel, minStake } = agent;
+                const agentModel = new StakeAgentModel({
+                    blockNum,
+                    account,
+                    symbol,
+                    fee,
+                    proxyLevel,
+                    minStake
+                });
+
+                try {
+                    await agentModel.save();
+                } catch (err) {
                     if (!(err.name === 'MongoError' && err.code === 11000)) {
                         throw err;
                     }
