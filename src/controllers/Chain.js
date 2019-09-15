@@ -14,14 +14,14 @@ class Chain {
     }
 
     async getInfo() {
-        return await this._dataActualizer.getInfo()
+        return await this._dataActualizer.getInfo();
     }
 
     async getValidators() {
         const validators = await this._dataActualizer.getValidators();
         const { items } = validators;
         if (items.length) {
-            const accounts = items.map(({account}) => account);
+            const accounts = items.map(({ account }) => account);
             const properties = await StakeAgentModel.find(
                 {
                     account: { $in: accounts },
@@ -30,12 +30,14 @@ class Chain {
                 {},
                 {
                     sort: { blockNum: -1 },
-                    lean: true
+                    lean: true,
                 }
             );
             const missing = [];
             items.forEach(item => {
-                const props = properties.find(({ account }) => account == item.account);
+                const props = properties.find(
+                    ({ account }) => account == item.account
+                );
                 if (props) {
                     const { fee, proxyLevel, minStake } = props;
                     item.props = {
@@ -51,7 +53,7 @@ class Chain {
                 // this branch allows to fetch missing agents info from api without "replaying" events,
                 // but it makes 50+ requests first time. also it's not precise in case of fork (block num can change).
                 // This mechanism should be removed when filling data from genesis become ready
-                const info = await this._dataActualizer.getInfo({ force: true });
+                const info = await this._dataActualizer.getInfo();
                 for (const acc of missing) {
                     const props = await this._dataActualizer.getAgent(acc);
                     if (props) {
@@ -69,14 +71,16 @@ class Chain {
                             symbol: 'CYBER',
                             fee,
                             proxyLevel,
-                            minStake
+                            minStake,
                         });
 
                         try {
                             await agentModel.save();
-                        } catch (err) {
-                            if (!(err.name === 'MongoError' && err.code === 11000)) {
-                                throw err;
+                        } catch (e) {
+                            if (
+                                !(e.name === 'MongoError' && e.code === 11000)
+                            ) {
+                                throw e;
                             }
                         }
                     }

@@ -150,17 +150,18 @@ class DataActualizer extends BasicService {
                 },
             },
         });
-        const agent = data.rows.filter(
-            agent => agent.account === account && agent.token_code === 'CYBER'
-        ).map(
-            agent => ({
+        const agent = data.rows
+            .filter(
+                agent =>
+                    agent.account === account && agent.token_code === 'CYBER'
+            )
+            .map(agent => ({
                 account,
                 symbol: agent.token_code,
                 fee: agent.fee,
                 proxyLevel: agent.proxy_level,
                 minStake: agent.min_own_staked,
-            })
-        )[0];
+            }))[0];
         return agent;
     }
 
@@ -255,7 +256,7 @@ class DataActualizer extends BasicService {
                     votes: candidate.votes,
                     username: candidate.username,
                     percent:
-                        (100 * candidate.votes) / this._stakeStat.total_votes,
+                        100 * candidate.votes / this._stakeStat.total_votes,
                 }));
 
             this._validatorsUpdateTime = new Date();
@@ -267,7 +268,7 @@ class DataActualizer extends BasicService {
     _clearCache() {
         const now = Date.now();
 
-        for (const [accountId, grants] of Object.entries(this._grantsCache)) {
+        for (const [ accountId, grants ] of Object.entries(this._grantsCache)) {
             if (now - grants.updateTime > ACCOUNTS_CACHE_EXPIRE) {
                 delete this._grantsCache[accountId];
             }

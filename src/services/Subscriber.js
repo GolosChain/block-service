@@ -322,7 +322,7 @@ class Subscriber extends BasicService {
                 stats.actions.count += transaction.actions.length;
 
                 const handlers = {
-                    'cyber': {
+                    cyber: {
                         newaccount: this._newAccountAction,
                     },
                     'cyber.stake': {
@@ -348,8 +348,7 @@ class Subscriber extends BasicService {
                         const eventsHandlers = contractHandlers.EVENTS;
                         if (eventsHandlers) {
                             for (const event of action.events) {
-                                if (event.code !== action.code)
-                                    continue;   // not required for now
+                                if (event.code !== action.code) continue; // not required for now
                                 const handler = eventsHandlers[event.event];
                                 if (handler) {
                                     handler(event, storage, stats);
@@ -634,10 +633,11 @@ class Subscriber extends BasicService {
     }
 
     async _saveBalanceUpdates(balances, blockNum) {
-        if (Object.keys(balances).length === 0)
-            return;
+        if (Object.keys(balances).length === 0) return;
         await Promise.all(
-            Object.values(balances).map(async ({ account, symbol, balance, payments }) => {
+            Object.values(
+                balances
+            ).map(async ({ account, symbol, balance, payments }) => {
                 const balanceModel = new TokenBalanceModel({
                     blockNum,
                     account,
@@ -658,17 +658,16 @@ class Subscriber extends BasicService {
     }
 
     async _saveAgentUpdates(agents, blockNum) {
-        if (Object.keys(agents).length === 0)
-            return;
+        if (Object.keys(agents).length === 0) return;
         await Promise.all(
-            Object.keys(agents).map(async (key) => {
+            Object.keys(agents).map(async key => {
                 const [ account, symbol ] = key.split(' ');
                 const value = agents[key];
 
                 const previous = await StakeAgentModel.findOne(
                     {
                         account,
-                        symbol
+                        symbol,
                     },
                     {},
                     {
@@ -690,7 +689,7 @@ class Subscriber extends BasicService {
                     symbol,
                     fee,
                     proxyLevel,
-                    minStake
+                    minStake,
                 });
 
                 try {

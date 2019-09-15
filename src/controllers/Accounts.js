@@ -35,20 +35,22 @@ class Accounts {
         const balances = await BalanceModel.aggregate([
             {
                 $match: {
-                    account: accountId
-                }
-            }, {
+                    account: accountId,
+                },
+            },
+            {
                 $group: {
-                    _id: "$symbol",
+                    _id: '$symbol',
                     doc: {
-                        $first: "$$ROOT"
+                        $first: '$$ROOT',
                     },
-                }
-            }, {
+                },
+            },
+            {
                 $sort: {
-                    _id: 1
-                }
-            }
+                    _id: 1,
+                },
+            },
         ]);
         const tokens = [];
         if (balances && balances.length) {
