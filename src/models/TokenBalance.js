@@ -12,7 +12,7 @@ module.exports = MongoDB.makeModel(
             required: true,
         },
         symbol: {
-            type: String,       // should simplify fetching unique balances
+            type: String, // should simplify fetching unique balances
             required: true,
         },
         balance: {
@@ -37,7 +37,7 @@ module.exports = MongoDB.makeModel(
                     blockNum: -1,
                 },
                 options: {
-                    unique: true,    // there can be several changes in one block, overwrite with last one
+                    unique: true, // there can be several changes in one block, overwrite with last one
                 },
             },
             {

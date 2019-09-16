@@ -52,6 +52,7 @@ class Accounts {
                 },
             },
         ]);
+
         const tokens = [];
         if (balances && balances.length) {
             for (const balance of balances) {

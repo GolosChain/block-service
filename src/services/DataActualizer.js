@@ -150,11 +150,9 @@ class DataActualizer extends BasicService {
                 },
             },
         });
+
         const agent = data.rows
-            .filter(
-                agent =>
-                    agent.account === account && agent.token_code === 'CYBER'
-            )
+            .filter(agent => agent.account === account && agent.token_code === 'CYBER')
             .map(agent => ({
                 account,
                 symbol: agent.token_code,
@@ -162,17 +160,15 @@ class DataActualizer extends BasicService {
                 proxyLevel: agent.proxy_level,
                 minStake: agent.min_own_staked,
             }))[0];
+
         return agent;
     }
 
     async _callChainApi({ endpoint, args }) {
-        const response = await fetch(
-            `${env.GLS_CYBERWAY_CONNECT}/v1/chain/${endpoint}`,
-            {
-                method: 'POST',
-                body: JSON.stringify(args),
-            }
-        );
+        const response = await fetch(`${env.GLS_CYBERWAY_CONNECT}/v1/chain/${endpoint}`, {
+            method: 'POST',
+            body: JSON.stringify(args),
+        });
 
         return await response.json();
     }
@@ -244,10 +240,7 @@ class DataActualizer extends BasicService {
             await this.addUsernames(candidates, 'account');
 
             this._validators = candidates
-                .filter(
-                    candidate =>
-                        candidate.enabled && candidate.token_code === 'CYBER'
-                )
+                .filter(candidate => candidate.enabled && candidate.token_code === 'CYBER')
                 .map(candidate => ({
                     account: candidate.account,
                     enabled: candidate.enabled,
@@ -255,8 +248,7 @@ class DataActualizer extends BasicService {
                     signKey: candidate.signing_key,
                     votes: candidate.votes,
                     username: candidate.username,
-                    percent:
-                        100 * candidate.votes / this._stakeStat.total_votes,
+                    percent: (100 * candidate.votes) / this._stakeStat.total_votes,
                 }));
 
             this._validatorsUpdateTime = new Date();
@@ -268,7 +260,7 @@ class DataActualizer extends BasicService {
     _clearCache() {
         const now = Date.now();
 
-        for (const [ accountId, grants ] of Object.entries(this._grantsCache)) {
+        for (const [accountId, grants] of Object.entries(this._grantsCache)) {
             if (now - grants.updateTime > ACCOUNTS_CACHE_EXPIRE) {
                 delete this._grantsCache[accountId];
             }

@@ -50,9 +50,7 @@ class Subscriber extends BasicService {
                 await this._setIrreversibleBlockNum(data);
                 break;
             case 'FORK':
-                Logger.warn(
-                    `Fork detected, new safe base on block num: ${data.baseBlockNum}`
-                );
+                Logger.warn(`Fork detected, new safe base on block num: ${data.baseBlockNum}`);
                 await this._deleteInvalidEntries(data.baseBlockNum);
                 break;
             default:
@@ -123,20 +121,14 @@ class Subscriber extends BasicService {
             );
         }
 
-        const { counters, storage } = this._calcBlockCounters(
-            block,
-            transactions,
-            parentBlock
-        );
+        const { counters, storage } = this._calcBlockCounters(block, transactions, parentBlock);
 
         const blockModel = new BlockModel({
             id: block.id,
             parentId: block.parentId,
             blockNum: block.blockNum,
             blockTime: block.blockTime,
-            transactionIds: block.transactions.map(
-                transaction => transaction.id
-            ),
+            transactionIds: block.transactions.map(transaction => transaction.id),
             counters,
             codes: Object.keys(blockIndexes.codes),
             actions: Object.keys(blockIndexes.actions),
@@ -274,7 +266,7 @@ class Subscriber extends BasicService {
                 agent.minStake = args.min_own_staked;
                 break;
             default:
-                Logger.warn(`Wrong action ${action.action} passed to _updateAgentAction`)
+                Logger.warn(`Wrong action ${action.action} passed to _updateAgentAction`);
         }
     }
 
@@ -308,16 +300,15 @@ class Subscriber extends BasicService {
 
         const storage = {
             newAccounts: [],
-            balances: {},       // updates if several balance changes in one block
-            agents: {},         // updates if several fields of agent changed in one block
+            balances: {}, // updates if several balance changes in one block
+            agents: {}, // updates if several fields of agent changed in one block
         };
 
         const tStats = stats.transactions;
 
         if (transactions) {
             for (const transaction of transactions) {
-                tStats[transaction.status] =
-                    (tStats[transaction.status] || 0) + 1;
+                tStats[transaction.status] = (tStats[transaction.status] || 0) + 1;
 
                 stats.actions.count += transaction.actions.length;
 
@@ -363,10 +354,7 @@ class Subscriber extends BasicService {
         return {
             counters: {
                 current: stats,
-                total: this._mergeStats(
-                    parentBlock ? parentBlock.counters.total : null,
-                    stats
-                ),
+                total: this._mergeStats(parentBlock ? parentBlock.counters.total : null, stats),
             },
             storage,
         };
@@ -635,9 +623,7 @@ class Subscriber extends BasicService {
     async _saveBalanceUpdates(balances, blockNum) {
         if (Object.keys(balances).length === 0) return;
         await Promise.all(
-            Object.values(
-                balances
-            ).map(async ({ account, symbol, balance, payments }) => {
+            Object.values(balances).map(async ({ account, symbol, balance, payments }) => {
                 const balanceModel = new TokenBalanceModel({
                     blockNum,
                     account,
@@ -661,7 +647,7 @@ class Subscriber extends BasicService {
         if (Object.keys(agents).length === 0) return;
         await Promise.all(
             Object.keys(agents).map(async key => {
-                const [ account, symbol ] = key.split(' ');
+                const [account, symbol] = key.split(' ');
                 const value = agents[key];
 
                 const previous = await StakeAgentModel.findOne(
