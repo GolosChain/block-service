@@ -336,10 +336,15 @@ class Subscriber extends BasicService {
                         if (handler) {
                             handler(action, storage, stats);
                         }
+
                         const eventsHandlers = contractHandlers.EVENTS;
                         if (eventsHandlers) {
                             for (const event of action.events) {
-                                if (event.code !== action.code) continue; // not required for now
+                                if (event.code !== action.code) {
+                                    // not required for now
+                                    continue;
+                                }
+
                                 const handler = eventsHandlers[event.event];
                                 if (handler) {
                                     handler(event, storage, stats);
@@ -621,7 +626,10 @@ class Subscriber extends BasicService {
     }
 
     async _saveBalanceUpdates(balances, blockNum) {
-        if (Object.keys(balances).length === 0) return;
+        if (Object.keys(balances).length === 0) {
+            return;
+        }
+
         await Promise.all(
             Object.values(balances).map(async ({ account, symbol, balance, payments }) => {
                 const balanceModel = new TokenBalanceModel({
@@ -644,7 +652,10 @@ class Subscriber extends BasicService {
     }
 
     async _saveAgentUpdates(agents, blockNum) {
-        if (Object.keys(agents).length === 0) return;
+        if (Object.keys(agents).length === 0) {
+            return;
+        }
+
         await Promise.all(
             Object.keys(agents).map(async key => {
                 const [account, symbol] = key.split(' ');
