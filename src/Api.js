@@ -39,11 +39,7 @@ class ApiMain extends BasicMain {
     }
 
     async boot() {
-        const meta = await ServiceMetaModel.findOne(
-            {},
-            { _id: 1 },
-            { lean: true }
-        );
+        const meta = await ServiceMetaModel.findOne({}, { _id: 1 }, { lean: true });
 
         if (!meta) {
             const model = new ServiceMetaModel({});

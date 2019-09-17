@@ -21,7 +21,6 @@ module.exports = MongoDB.makeModel(
         },
         payments: {
             type: String,
-            required: true,
         },
         blockNum: {
             type: Number,
