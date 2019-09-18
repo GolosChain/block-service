@@ -23,6 +23,17 @@ function extractByPath(data, path) {
     }
 }
 
+async function saveModelIgnoringDups(model) {
+    try {
+        await model.save();
+    } catch (err) {
+        if (!(err.name === 'MongoError' && err.code === 11000)) {
+            throw err;
+        }
+    }
+}
+
 module.exports = {
     extractByPath,
+    saveModelIgnoringDups,
 };

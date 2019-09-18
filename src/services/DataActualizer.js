@@ -68,7 +68,7 @@ class DataActualizer extends BasicService {
             }
 
             if (!ok) {
-                Logger.error('Failed to fetch username of', acc);
+                Logger.warn('Failed to fetch username of', acc);
             }
         }
         return usernames;
@@ -107,14 +107,13 @@ class DataActualizer extends BasicService {
             grants = {
                 updateTime: new Date(now),
                 items: data.rows
-                    .filter(
-                        grant =>
-                            grant.token_code === 'CYBER' &&
-                            grant.grantor_name === account &&
-                            grant.share > 0
-                    )
-                    .map(({ recipient_name }) => ({
+                    .filter(grant => grant.token_code === 'CYBER' && grant.grantor_name === account)
+                    .map(({ recipient_name, pct, share, break_fee, break_min_own_staked }) => ({
                         accountId: recipient_name,
+                        pct,
+                        share,
+                        breakFee: break_fee,
+                        breakMinStaked: break_min_own_staked,
                     })),
             };
 
@@ -135,6 +134,31 @@ class DataActualizer extends BasicService {
         };
     }
 
+    getValidTableRow({ data, filter, strictOneRow }) {
+        const rows = this.filterTableRows({ data, filter });
+        return rows && rows.length && (!strictOneRow || rows.length == 1) ? rows[0] : null;
+    }
+
+    filterTableRows({ data, filter }) {
+        let rows = null;
+
+        Logger.log("GTR: ", data.rows);
+        if (data && Array.isArray(data.rows)) {
+            rows = data.rows.filter(row => {
+                for (const [key, value] of Object.entries(filter)) {
+                    if (row[key] !== value) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+        } else {
+            throw new Error('Unexpected response of get_table_rows');
+        }
+
+        return rows;
+    }
+
     async getAgent(account) {
         const data = await this._callChainApi({
             endpoint: 'get_table_rows',
@@ -151,17 +175,19 @@ class DataActualizer extends BasicService {
             },
         });
 
-        const agent = data.rows
-            .filter(agent => agent.account === account && agent.token_code === 'CYBER')
-            .map(agent => ({
+        const agent = this.getValidTableRow({ data, filter: { account, token_code: 'CYBER' } });
+
+        if (agent) {
+            return {
                 account,
                 symbol: agent.token_code,
                 fee: agent.fee,
                 proxyLevel: agent.proxy_level,
                 minStake: agent.min_own_staked,
-            }))[0];
+            };
+        }
 
-        return agent;
+        return null;
     }
 
     async _callChainApi({ endpoint, args }) {
