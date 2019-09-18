@@ -32,15 +32,15 @@ class Accounts {
         }
 
         await Promise.all([
-            async () => {
+            (async () => {
                 account.grants = await this._dataActualizer.getGrants({ account: accountId });
-            },
-            async () => {
+            })(),
+            (async () => {
                 account.tokens = await this.getTokens(accountId);
-            },
-            async () => {
+            })(),
+            (async () => {
                 account.agentProps = await this.getAgentProps(accountId);
-            },
+            })(),
         ]);
 
         return account;
