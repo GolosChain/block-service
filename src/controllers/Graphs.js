@@ -32,10 +32,7 @@ class Graphs {
         for (const block of blocks) {
             const timestamp = block.blockTime.getTime();
             const delta = Math.max(0, nowTs - timestamp) / 1000;
-            const chunkIndex = Math.min(
-                POINTS_IN_HOUR - 1,
-                Math.floor(delta / interval)
-            );
+            const chunkIndex = Math.min(POINTS_IN_HOUR - 1, Math.floor(delta / interval));
 
             stats[chunkIndex] += block.counters.current.transactions.executed;
         }

@@ -80,13 +80,13 @@ class GenesisContent {
             account,
             symbol: 'GOLOS',
             balance: balance,
-            blockNum: 0,
+            blockNum: 1,
         });
         this._balancesBulk.addEntry({
             account,
             symbol: 'CYBER',
             balance: balance_in_sys,
-            blockNum: 0,
+            blockNum: 1,
         });
 
         metrics.inc('genesis_type_account_processed');
