@@ -87,9 +87,7 @@ class AccountPathsCache {
             );
 
             if (!actionPathsModel) {
-                Logger.warn(
-                    `AccountPath not found for contract: ${account}::${action}`
-                );
+                Logger.warn(`AccountPath not found for contract: ${account}::${action}`);
                 actionPathsModel = {};
             }
 

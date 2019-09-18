@@ -77,6 +77,7 @@ class Accounts {
                 });
             }
         }
+        return tokens;
     }
 
     async getAgentProps(account) {
