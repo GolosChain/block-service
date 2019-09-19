@@ -39,8 +39,14 @@ class Chain {
             for (const item of items) {
                 const props = properties.find(({ account }) => account === item.account);
 
-                if (props) {
+                if (props && props.proxyLevel !== undefined) {
                     const { fee, proxyLevel, minStake } = props;
+                    if (fee === undefined) {
+                        fee = 10000;
+                    }
+                    if (minStake === undefined) {
+                        minStake = 0;
+                    }
                     item.props = {
                         fee,
                         proxyLevel,
