@@ -34,6 +34,7 @@ class GenesisContent {
         switch (type) {
             case 'account':
                 await this._accountsBulk.finish();
+                await this._balancesBulk.finish();
                 await this._onDone();
                 break;
             default:

@@ -222,7 +222,6 @@ class Subscriber extends BasicService {
     }
 
     _emptyActionHandler(action) {
-        Logger.log('Action:', action);
     }
 
     _newAccountAction(action, storage, stats) {

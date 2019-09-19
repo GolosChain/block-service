@@ -93,9 +93,9 @@ class Accounts {
             }
         );
 
-        if (!props) {
+        if (!props || props.proxyLevel === undefined) {
             // Can't remove this branch even if read agents from genesis: agents can be created without event
-            // TODO: replace with `blockchain-storage-proxy` when ready
+            // TODO: replace with `state-reader` when ready
             props = await this._dataActualizer.getAgent(account);
             if (props) {
                 const info = await this._dataActualizer.getInfo();
@@ -119,6 +119,12 @@ class Accounts {
         }
 
         const { fee, proxyLevel, minStake } = props;
+        if (fee === undefined) {
+            fee = 10000;
+        }
+        if (minStake === undefined) {
+            minStake = 0;
+        }
         return {
             fee,
             proxyLevel,
