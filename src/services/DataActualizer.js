@@ -142,7 +142,6 @@ class DataActualizer extends BasicService {
     filterTableRows({ data, filter }) {
         let rows = null;
 
-        Logger.log("GTR: ", data.rows);
         if (data && Array.isArray(data.rows)) {
             rows = data.rows.filter(row => {
                 for (const [key, value] of Object.entries(filter)) {
