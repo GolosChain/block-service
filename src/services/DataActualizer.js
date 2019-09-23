@@ -10,10 +10,11 @@ const ACCOUNTS_CACHE_EXPIRE = 2 * 60 * 1000;
 class DataActualizer extends BasicService {
     async start() {
         this._stakeStat = null;
+        this._tokensStats = null;
         this._validators = [];
         this._validatorsUpdateTime = null;
         this._producers = [];
-        this._producersUpdateTime = null;
+        this._lastRefreshTime = null;
         this._usernamesCache = {}; // username cache for golos domain
         this._grantsCache = {};
 
@@ -26,7 +27,7 @@ class DataActualizer extends BasicService {
     getProducers() {
         return {
             producers: this._producers,
-            updateTime: this._producersUpdateTime,
+            updateTime: this._lastRefreshTime,
         };
     }
 
@@ -125,21 +126,26 @@ class DataActualizer extends BasicService {
         return grants;
     }
 
+    _tokenAmount(tokenString) {
+        return parseInt(tokenString.split(' ')[0].replace('.', ''));
+    }
+
     getValidators() {
         return {
             items: this._validators,
             updateTime: this._validatorsUpdateTime,
+            supply: this._tokenAmount(this._tokensStats.supply),
             totalStaked: this._stakeStat.total_staked,
             totalVotes: this._stakeStat.total_votes,
         };
     }
 
-    getValidTableRow({ data, filter, strictOneRow }) {
-        const rows = this.filterTableRows({ data, filter });
+    _getValidTableRow({ data, filter, strictOneRow }) {
+        const rows = this._filterTableRows({ data, filter });
         return rows && rows.length && (!strictOneRow || rows.length == 1) ? rows[0] : null;
     }
 
-    filterTableRows({ data, filter }) {
+    _filterTableRows({ data, filter }) {
         let rows = null;
 
         if (data && Array.isArray(data.rows)) {
@@ -174,7 +180,7 @@ class DataActualizer extends BasicService {
             },
         });
 
-        const agent = this.getValidTableRow({ data, filter: { account, token_code: 'CYBER' } });
+        const agent = this._getValidTableRow({ data, filter: { account, token_code: 'CYBER' } });
 
         if (agent) {
             return {
@@ -212,71 +218,96 @@ class DataActualizer extends BasicService {
         }
     }
 
-    async _refreshData() {
-        try {
-            const data = await this._callChainApi({
-                endpoint: 'get_producer_schedule',
-            });
+    async _refreshProducersSchedule() {
+        const data = await this._callChainApi({
+            endpoint: 'get_producer_schedule',
+        });
 
-            this._producersUpdateTime = new Date();
-            const prods = data.active.producers;
+        const prods = data.active.producers;
 
-            await this.addUsernames(prods, 'producer_name');
+        await this.addUsernames(prods, 'producer_name');
 
-            this._producers = prods.map(producer => ({
-                id: producer.producer_name,
-                signKey: producer.block_signing_key,
-                username: producer.username,
+        this._producers = prods.map(producer => ({
+            id: producer.producer_name,
+            signKey: producer.block_signing_key,
+            username: producer.username,
+        }));
+    }
+
+    async _refreshStakeStats() {
+        const stake = await this._callChainApi({
+            endpoint: 'get_table_rows',
+            args: {
+                code: '',
+                scope: '',
+                table: 'stake.stat',
+                index: 'primary',
+            },
+        });
+
+        this._stakeStat = stake.rows[0];
+    }
+
+    async _refreshTokenStats() {
+        const stats = await this._callChainApi({
+            endpoint: 'get_table_rows',
+            args: {
+                code: 'cyber.token',
+                scope: 'CYBER',
+                table: 'stat',
+                index: 'primary',
+            },
+        });
+
+        this._tokensStats = stats.rows[0];
+    }
+
+    async _refreshStakeCandidates() {
+        const rows = await this._callChainApi({
+            endpoint: 'get_table_rows',
+            args: {
+                code: '',
+                scope: '',
+                table: 'stake.cand',
+                index: 'byvotes',
+                limit: 100,
+                lower_bound: {
+                    token_code: 'CYBER',
+                    enabled: true,
+                    votes: 0x7fffffffffffffff,
+                    account: '',
+                },
+            },
+        });
+
+        const candidates = rows.rows;
+
+        await this.addUsernames(candidates, 'account');
+
+        this._validators = candidates
+            .filter(candidate => candidate.enabled && candidate.token_code === 'CYBER')
+            .map(candidate => ({
+                account: candidate.account,
+                enabled: candidate.enabled,
+                latestPick: candidate.latest_pick + 'Z',
+                signKey: candidate.signing_key,
+                votes: candidate.votes,
+                username: candidate.username,
+                percent: (100 * candidate.votes) / this._stakeStat.total_votes,
             }));
 
-            Logger.log('Fetched producer:', this._producers[0]);
+        this._validatorsUpdateTime = new Date();
+    }
 
-            const stake = await this._callChainApi({
-                endpoint: 'get_table_rows',
-                args: {
-                    code: '',
-                    scope: '',
-                    table: 'stake.stat',
-                    index: 'primary',
-                },
-            });
-
-            this._stakeStat = stake.rows[0];
-
-            const rows = await this._callChainApi({
-                endpoint: 'get_table_rows',
-                args: {
-                    code: '',
-                    scope: '',
-                    table: 'stake.cand',
-                    index: 'byvotes',
-                    limit: 100,
-                    lower_bound: {
-                        token_code: 'CYBER',
-                        enabled: true,
-                        votes: 0x7fffffffffffffff,
-                        account: '',
-                    },
-                },
-            });
-
-            const candidates = rows.rows;
-
-            await this.addUsernames(candidates, 'account');
-
-            this._validators = candidates
-                .filter(candidate => candidate.enabled && candidate.token_code === 'CYBER')
-                .map(candidate => ({
-                    account: candidate.account,
-                    enabled: candidate.enabled,
-                    latestPick: candidate.latest_pick + 'Z',
-                    signKey: candidate.signing_key,
-                    votes: candidate.votes,
-                    username: candidate.username,
-                    percent: (100 * candidate.votes) / this._stakeStat.total_votes,
-                }));
-
-            this._validatorsUpdateTime = new Date();
+    async _refreshData() {
+        try {
+            await Promise.all([
+                // this._refreshProducersSchedule(),
+                this._refreshStakeCandidates(),
+                this._refreshStakeStats(),
+                this._refreshTokenStats(),
+            ]);
+            this._lastRefreshTime = new Date();
         } catch (err) {
             Logger.error('DataActualizer tick failed:', err);
         }
