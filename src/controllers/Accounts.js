@@ -118,13 +118,16 @@ class Accounts {
             return null;
         }
 
-        const { fee, proxyLevel, minStake } = props;
+        let { fee, proxyLevel, minStake } = props;
+
         if (fee === undefined) {
             fee = 10000;
         }
+
         if (minStake === undefined) {
             minStake = 0;
         }
+
         return {
             fee,
             proxyLevel,
