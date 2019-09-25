@@ -1,4 +1,4 @@
-const core = require('gls-core-service');
+const core = require('cyberway-core-service');
 const MongoDB = core.services.MongoDB;
 
 // TODO: there are fields and indexes common for all revertable (on fork) models,

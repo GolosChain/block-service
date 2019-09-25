@@ -1,4 +1,4 @@
-const core = require('gls-core-service');
+const core = require('cyberway-core-service');
 const { chunk: chunkSplit } = require('lodash');
 const BasicService = core.services.Basic;
 const { Logger } = core.utils;
