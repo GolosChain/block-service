@@ -13,7 +13,7 @@
   "author": "golos.io",
   "license": "GPL-3.0",
   "dependencies": {
-    "cyberway-core-service": "3.52.5",
+    "cyberway-core-service": "3.52.6",
     "cyberwayjs": "^20.0.0-beta7",
     "lodash": "^4.17.15"
   },
