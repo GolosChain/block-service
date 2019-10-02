@@ -2,10 +2,13 @@ const core = require('cyberway-core-service');
 const { Logger } = core.utils;
 const LogModel = require('../models/Log');
 const MissedBlockModel = require('../models/MissedBlock');
+const ScheduleStateModel = require('../models/ScheduleState');
+
+const LOG_MISSED_BLOCKS = false;
 
 class Schedule {
     constructor() {
-        this.queue = [];
+        this.queue = null;
         this.schedule = [];
         this.blockNum = 1;
         this.blockTime = null;
@@ -13,16 +16,16 @@ class Schedule {
         this.syncState = {};
     }
 
-    init({ producer, schedule }) {
+    async init({ producer, schedule }) {
         this.schedule = schedule;
 
         // the edge case: when process last schedule index, there is no info on the schedule,
         // so idx can get any value (wrong). can't detect it here.
         let idx = schedule.indexOf(producer);
-        let q = [].concat(this.schedule);
+        let q = [].concat(schedule);
         Logger.log('Init schedule:', producer, schedule, idx, this.blockNum);
 
-        if (idx === this.length - 1 || this.blockNum === 2) {
+        if (idx === schedule.length - 1 || this.blockNum === 2) {
             // this only possible if schedule changed from [a1,a1,...,an] to [b1,b2,...an]
             Logger.info('Init with last index');
         } else {
@@ -34,9 +37,24 @@ class Schedule {
         }
         this.queue = q;
         this.mustSync = false;
+        await this.saveState();
     }
 
     async processBlock({ producer, schedule, blockNum, blockTime }) {
+        if (this.queue === null) {
+            await this.initState();
+        }
+
+        if (blockNum <= this.blockNum) {
+            this.log(`Got already processed block: ${blockTime}`);
+            return;
+        }
+        if (blockNum !== this.blockNum + 1) {
+            this.blockTime = blockTime;
+            this.syncState = {};
+            this.fatality(`blockNum gap: ${this.blockNum}-${blockNum}`); // resync; TODO: can request earlier block from nats
+        }
+
         const prevTime = this.blockTime || blockTime;
         let missed = (blockTime - prevTime) / 3000 - 1;
         this.blockTime = blockTime;
@@ -52,7 +70,7 @@ class Schedule {
 
         if (this.mustSync) {
             const q = this.syncState.queue;
-            if (q !== undefined) {
+            if (Array.isArray(q)) {
                 // special sync case to detect correct schedule switch point
                 let prevMissed = this.syncState.missed;
                 const idx = this.schedule.indexOf(producer);
@@ -94,7 +112,7 @@ class Schedule {
             }
         }
         if (this.mustSync) {
-            this.init({ producer, schedule });
+            await this.init({ producer, schedule });
             return;
         }
 
@@ -142,11 +160,15 @@ class Schedule {
                 this.queue = [].concat(schedule);
             }
         }
+
+        await this.saveState();
     }
 
     async storeSkippers({ skippers, blockNum, time }) {
         if (!skippers.length) return;
-        Logger.info('Miss:', skippers.toString(), blockNum);
+        if (LOG_MISSED_BLOCKS) {
+            Logger.info('Miss:', skippers.toString(), blockNum);
+        }
         const all = [];
         for (const producer of skippers) {
             time = new Date(time.getTime() + 3000);
@@ -160,6 +182,44 @@ class Schedule {
         await Promise.all(all);
     }
 
+    async initState() {
+        let state = await ScheduleStateModel.findOne({}, {}, { lean: true });
+
+        if (!state) {
+            state = new ScheduleStateModel({});
+            await state.save();
+        }
+
+        const { queue, schedule, blockNum, blockTime, mustSync, syncState } = state;
+        this.queue = queue;
+        this.schedule = schedule;
+        this.blockNum = blockNum;
+        this.blockTime = blockTime;
+        this.mustSync = mustSync;
+        this.syncState = {
+            queue: syncState.queue,
+            missed: syncState.missed,
+            blockNum: syncState.blockNum,
+            prevTime: syncState.prevTime,
+        };
+    }
+
+    async saveState() {
+        await ScheduleStateModel.updateOne(
+            {},
+            {
+                $set: {
+                    queue: this.queue,
+                    schedule: this.schedule,
+                    blockNum: this.blockNum,
+                    blockTime: this.blockTime,
+                    mustSync: this.mustSync,
+                    syncState: this.syncState,
+                },
+            }
+        );
+    }
+
     isSame({ schedule }) {
         return schedule.toString() === this.schedule.toString();
     }
@@ -167,6 +227,7 @@ class Schedule {
     async _logFatal({ message, fatal }) {
         const log = new LogModel({
             blockNum: this.blockNum,
+            module: 'Schedule',
             text: message,
         });
 
@@ -177,7 +238,7 @@ class Schedule {
             Logger.info('Schedule', log);
         }
 
-        await log.save();
+        await Promise.all([log.save(), this.saveState()]);
     }
 
     async log(message) {

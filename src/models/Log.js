@@ -8,6 +8,9 @@ module.exports = MongoDB.makeModel(
             type: Number,
             required: true,
         },
+        module: {
+            type: String,
+        },
         text: {
             type: String,
             required: true,
