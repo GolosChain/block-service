@@ -25,7 +25,7 @@ class Chain {
         if (items.length) {
             const accounts = items.map(({ account }) => account);
             const now = new Date();
-            const weekAgo = new Date(now.getTime() - 1000 * 3600 * 24 * 6);
+            const weekAgo = new Date(now.getTime() - 1000 * 3600 * 24 * 7);
             const [weekMissed, allMissed, produced] = await Promise.all([
                 Schedule.countMisses({
                     producers: accounts,
