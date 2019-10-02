@@ -1,6 +1,7 @@
 const core = require('cyberway-core-service');
 const { Logger } = core.utils;
 const LogModel = require('../models/Log');
+const BlockModel = require('../models/Block');
 const MissedBlockModel = require('../models/MissedBlock');
 const ScheduleStateModel = require('../models/ScheduleState');
 
@@ -225,17 +226,18 @@ class Schedule {
     }
 
     async _logFatal({ message, fatal }) {
-        const log = new LogModel({
+        const data = {
             blockNum: this.blockNum,
             module: 'Schedule',
             text: message,
-        });
+        };
+        const log = new LogModel(data);
 
         if (fatal) {
-            Logger.warn('Schedule Fatality', log);
+            Logger.warn('Schedule Fatality', data);
             this.mustSync = true;
         } else {
-            Logger.info('Schedule', log);
+            Logger.info('Schedule', data);
         }
 
         await Promise.all([log.save(), this.saveState()]);
@@ -247,6 +249,54 @@ class Schedule {
 
     async fatality(message) {
         await this._logFatal({ message, fatal: true });
+    }
+
+    ///////////////////////////////////////////////////////////
+    static async countMisses({ producers, match }) {
+        if (!match) {
+            match = {};
+        }
+        match.producer = { $in: producers };
+
+        const misses = await MissedBlockModel.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: '$producer',
+                    count: { $sum: 1 },
+                },
+            },
+        ]);
+
+        const result = {};
+        for (const i of misses) {
+            result[i._id] = i.count;
+        }
+        return result;
+    }
+
+    static async countBlocks({ producers, match }) {
+        if (!match) {
+            match = {};
+        }
+        match.producer = { $in: producers };
+
+        const blocks = await BlockModel.aggregate([
+            { $match: match },
+            {
+                $group: {
+                    _id: '$producer',
+                    count: { $sum: 1 },
+                    latest: { $max: '$blockTime' },
+                },
+            },
+        ]);
+
+        const result = {};
+        for (const i of blocks) {
+            result[i._id] = { count: i.count, latest: i.latest };
+        }
+        return result;
     }
 }
 

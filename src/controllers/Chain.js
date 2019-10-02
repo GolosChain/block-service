@@ -1,4 +1,5 @@
 const StakeAgentModel = require('../models/StakeAgent');
+const Schedule = require('./Schedule');
 class Chain {
     constructor({ dataActualizer }) {
         this._dataActualizer = dataActualizer;
@@ -23,6 +24,27 @@ class Chain {
 
         if (items.length) {
             const accounts = items.map(({ account }) => account);
+            const now = new Date();
+            const weekAgo = new Date(now.getTime() - 1000 * 3600 * 24 * 6);
+            const [weekMissed, allMissed, produced] = await Promise.all([
+                Schedule.countMisses({
+                    producers: accounts,
+                    match: { blockTime: { $gt: weekAgo } },
+                }),
+                Schedule.countMisses({ producers: accounts }),
+                Schedule.countBlocks({ producers: accounts }),
+            ]);
+
+            for (const item of items) {
+                const { account } = item;
+                const { count, latest } = produced[account] || {};
+
+                item.weekMissed = weekMissed[account] || 0;
+                item.allMissed = allMissed[account] || 0;
+                item.produced = count || 0;
+                item.latestBlock = latest;
+            }
+
             const properties = await StakeAgentModel.find(
                 {
                     account: { $in: accounts },
