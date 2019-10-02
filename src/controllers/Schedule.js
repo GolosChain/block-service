@@ -4,6 +4,7 @@ const LogModel = require('../models/Log');
 const BlockModel = require('../models/Block');
 const MissedBlockModel = require('../models/MissedBlock');
 const ScheduleStateModel = require('../models/ScheduleState');
+const { saveModelIgnoringDups } = require('../utils/common');
 
 const LOG_MISSED_BLOCKS = false;
 
@@ -81,7 +82,7 @@ class Schedule {
                 // 1,1 on block 1171489
                 // 0,2 on block 1189341
                 const twoScheduleChanges =
-                    countInPrev == q.length + 1 && (idx === missed) == 0 && q.length === prevMissed;
+                    countInPrev == q.length + 1 && idx === missed && q.length === prevMissed;
                 if (twoScheduleChanges) {
                     this.log(`2 schedule changes: ${idx},${q.length}`);
                 }
@@ -178,7 +179,7 @@ class Schedule {
                 blockNum,
                 producer,
             });
-            all.push(miss.save());
+            all.push(saveModelIgnoringDups(miss));
         }
         await Promise.all(all);
     }
