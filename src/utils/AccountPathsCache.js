@@ -8,10 +8,49 @@ class AccountPathsCache {
     }
 
     async get(account, action) {
+        if (account === 'cyber') {
+            switch (action) {
+                case 'newaccount':
+                    return [['creator'], ['name']];
+                case 'updateauth':
+                    return [['account'], ['auth', 'accounts', 'permission', 'actor']];
+                case 'deleteauth':
+                    return [['account']];
+                case 'linkauth':
+                case 'unlinkauth':
+                    return [['account'], ['code']];
+                default:
+                // Do nothing
+            }
+        }
+
+        if (account === 'cyber.domain') {
+            switch (action) {
+                case 'newusername':
+                    return [['creator'], ['owner']];
+                case 'newdomain':
+                    return [['creator']];
+                case 'passdomain':
+                    return [['from'], ['to']];
+                case 'linkdomain':
+                    return [['owner'], ['to']];
+                case 'unlinkdomain':
+                    return [['owner']];
+                default:
+                // Do nothing
+            }
+        }
+
         if (account === 'gls.vesting') {
             switch (action) {
+                case 'open':
+                    return [['ram_payer'], ['owner']];
                 case 'withdraw':
                     return [['from'], ['to']];
+                case 'retire':
+                    return [[], ['user']]; // signed by issuer
+                // case 'delegate': // both signatures here
+                // case 'undelegate': // this one is more tricky, "mention" party is one who didn't signed
                 default:
                 // Do nothing
             }
@@ -43,12 +82,16 @@ class AccountPathsCache {
                     return [['owner'], ['ram_payer']];
                 case 'delegatevote':
                 case 'recallvote':
+                case 'setgrntterms':
                 case 'delegateuse':
                 case 'recalluse':
                 case 'claim':
                     return [['grantor_name'], ['recipient_name']];
                 case 'withdraw':
                 case 'setkey':
+                case 'setminstaked':
+                case 'setproxyfee':
+                case 'setproxylvl':
                 case 'updatefunds':
                     return [['account']];
                 case 'pick':
@@ -58,8 +101,22 @@ class AccountPathsCache {
             }
         }
 
-        if (account === 'gls.publish' && action === 'upvote') {
-            return [['voter'], ['message_id', 'author']];
+        if (account === 'gls.publish') {
+            switch (action) {
+                case 'createmssg':
+                case 'updatemssg':
+                case 'deletemssg':
+                    return [['message_id', 'author']];
+                case 'upvote':
+                case 'unvote':
+                case 'downvote':
+                    return [['voter'], ['message_id', 'author']];
+                case 'reblog':
+                case 'erasereblog':
+                    return [['rebloger'], ['message_id', 'author']];
+                default:
+                // Do nothing
+            }
         }
 
         let accountCache = this._cache.get(account);

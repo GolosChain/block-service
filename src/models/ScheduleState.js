@@ -27,6 +27,7 @@ module.exports = MongoDB.makeModel('ScheduleState', {
         queue: [
             {
                 type: String,
+                default: null,
             },
         ],
         missed: {
