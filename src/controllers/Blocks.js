@@ -15,9 +15,7 @@ class Blocks {
     constructor() {
         let host = null;
 
-        const match = env.GLS_BLOCKCHAIN_BROADCASTER_CONNECT.match(
-            /@([^@:]+):\d+$/
-        );
+        const match = env.GLS_BLOCKCHAIN_BROADCASTER_CONNECT.match(/@([^@:]+):\d+$/);
 
         if (match) {
             host = match[1];
@@ -32,15 +30,7 @@ class Blocks {
         this._host = host;
     }
 
-    async getBlockList({
-        fromBlockNum,
-        limit,
-        code,
-        action,
-        actor,
-        event,
-        nonEmpty,
-    }) {
+    async getBlockList({ fromBlockNum, limit, code, action, actor, event, nonEmpty }) {
         const query = {};
 
         if (fromBlockNum) {
@@ -63,6 +53,7 @@ class Blocks {
                 parentId: 1,
                 blockNum: 1,
                 blockTime: 1,
+                producer: 1,
                 'counters.current.transactions': 1,
                 'counters.current.actions': 1,
             },
@@ -93,6 +84,7 @@ class Blocks {
                 parentId: 1,
                 blockNum: 1,
                 blockTime: 1,
+                producer: 1,
                 'counters.current.transactions': 1,
             },
             {
@@ -112,15 +104,7 @@ class Blocks {
         return block;
     }
 
-    async getBlockTransactions({
-        blockId,
-        fromIndex,
-        limit,
-        code,
-        action,
-        actor,
-        event,
-    }) {
+    async getBlockTransactions({ blockId, fromIndex, limit, code, action, actor, event }) {
         const query = {
             blockId,
         };
@@ -329,11 +313,7 @@ class Blocks {
                     lean: true,
                 }
             ),
-            ServiceMetaModel.findOne(
-                {},
-                { irreversibleBlockNum: 1 },
-                { lean: true }
-            ),
+            ServiceMetaModel.findOne({}, { irreversibleBlockNum: 1 }, { lean: true }),
         ]);
 
         if (block) {
@@ -341,8 +321,7 @@ class Blocks {
             results.irreversibleBlockNum = meta.irreversibleBlockNum;
             results.lastBlockNum = block.blockNum;
             results.accountsCount = block.counters.total.accounts.created;
-            results.transactionsCount =
-                block.counters.total.transactions.executed;
+            results.transactionsCount = block.counters.total.transactions.executed;
         }
 
         return results;

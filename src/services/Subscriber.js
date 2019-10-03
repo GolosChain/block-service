@@ -11,6 +11,7 @@ const AccountPathModel = require('../models/AccountPath');
 const AccountModel = require('../models/Account');
 const TokenBalanceModel = require('../models/TokenBalance');
 const StakeAgentModel = require('../models/StakeAgent');
+const Schedule = require('../controllers/Schedule');
 const CyberwayClient = require('../utils/Cyberway');
 const AccountPathsCache = require('../utils/AccountPathsCache');
 const { extractByPath } = require('../utils/common');
@@ -22,9 +23,11 @@ class Subscriber extends BasicService {
         const meta = await ServiceMetaModel.findOne({}, {}, { lean: true });
 
         this._accountPathsCache = new AccountPathsCache();
+        this._schedule = new Schedule();
 
         this._subscriber = new BlockSubscribe({
             handler: this._handleEvent.bind(this),
+            captureProducers: true,
         });
 
         await this._subscriber.setLastBlockMetaData({
@@ -122,12 +125,17 @@ class Subscriber extends BasicService {
         }
 
         const { counters, storage } = this._calcBlockCounters(block, transactions, parentBlock);
+        const newSchedule = block.schedule.toString() !== block.nextSchedule.toString();
+        const nextSchedule = newSchedule ? block.nextSchedule : undefined;
 
         const blockModel = new BlockModel({
             id: block.id,
             parentId: block.parentId,
             blockNum: block.blockNum,
             blockTime: block.blockTime,
+            producer: block.producer,
+            schedule: block.schedule,
+            nextSchedule,
             transactionIds: block.transactions.map(transaction => transaction.id),
             counters,
             codes: Object.keys(blockIndexes.codes),
@@ -206,6 +214,10 @@ class Subscriber extends BasicService {
         }
     }
 
+    async _detectMissedBlocks(block) {
+        await this._schedule.processBlock(block);
+    }
+
     async _setIrreversibleBlockNum(block) {
         try {
             await ServiceMetaModel.updateOne(
@@ -219,6 +231,9 @@ class Subscriber extends BasicService {
         } catch (err) {
             Logger.error('ServiceMeta saving failed:', err);
         }
+
+        // здесь не нужно realtime-обновление, поэтому проще ловить пропуски уже на irrevervible
+        await this._detectMissedBlocks(block);
     }
 
     _emptyActionHandler(action) {

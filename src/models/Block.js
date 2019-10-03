@@ -20,6 +20,15 @@ module.exports = MongoDB.makeModel(
             type: Date,
             required: true,
         },
+        producer: {
+            type: String,
+            required: true,
+        },
+        schedule: [{ type: String, required: true }],
+        nextSchedule: {
+            type: [String],
+            default: undefined,
+        },
         transactionIds: [
             {
                 type: String,
@@ -109,6 +118,17 @@ module.exports = MongoDB.makeModel(
             {
                 fields: {
                     eventNames: 1,
+                },
+            },
+            {
+                fields: {
+                    producer: 1,
+                },
+            },
+            {
+                fields: {
+                    producer: 1,
+                    blockTime: -1,
                 },
             },
         ],

@@ -1,6 +1,7 @@
 const BlockModel = require('../models/Block');
 
 const POINTS_IN_HOUR = 10;
+const HOUR = 3600;
 
 class Graphs {
     async getLastHourGraph() {
@@ -8,9 +9,9 @@ class Graphs {
         const nowTs = now.getTime();
         const hourAgo = new Date(now);
 
-        const interval = 3600 / POINTS_IN_HOUR;
+        const interval = HOUR / POINTS_IN_HOUR;
 
-        hourAgo.setSeconds(hourAgo.getSeconds() - POINTS_IN_HOUR * interval);
+        hourAgo.setSeconds(hourAgo.getSeconds() - HOUR);
 
         const blocks = await BlockModel.find(
             {
