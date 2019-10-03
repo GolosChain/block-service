@@ -125,6 +125,12 @@ module.exports = MongoDB.makeModel(
                     producer: 1,
                 },
             },
+            {
+                fields: {
+                    producer: 1,
+                    blockTime: -1,
+                },
+            },
         ],
     }
 );
