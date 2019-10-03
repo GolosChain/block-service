@@ -190,6 +190,7 @@ class Schedule {
         if (!state) {
             state = new ScheduleStateModel({});
             await state.save();
+            state.syncState.queue = null;
         }
 
         const { queue, schedule, blockNum, blockTime, mustSync, syncState } = state;
