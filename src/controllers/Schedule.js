@@ -24,7 +24,7 @@ class Schedule {
         // the edge case: when process last schedule index, there is no info on the schedule,
         // so idx can get any value (wrong). can't detect it here.
         let idx = schedule.indexOf(producer);
-        let q = [].concat(schedule);
+        let q = [...schedule];
         Logger.log('Init schedule:', producer, schedule, idx, this.blockNum);
 
         if (idx === schedule.length - 1 || this.blockNum === 2) {
@@ -146,7 +146,7 @@ class Schedule {
                 this.schedule = schedule;
                 const last = this.queue.shift();
                 const l = this.queue.length;
-                this.queue = [].concat(schedule);
+                this.queue = [...schedule];
                 if (last !== producer) {
                     return this.fatality(`Unsynced last producer ${last} / ${producer}`);
                 }
@@ -158,8 +158,8 @@ class Schedule {
                     blockNum,
                     prevTime,
                 };
-                this.schedule = [].concat(schedule);
-                this.queue = [].concat(schedule);
+                this.schedule = [...schedule];
+                this.queue = [...schedule];
             }
         }
 

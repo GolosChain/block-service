@@ -470,22 +470,43 @@ class Subscriber extends BasicService {
         this._accountPathsCache.deleteNewerThanBlockNum(baseBlockNum);
     }
 
+    _accountFromTransferMemo({ to, memo, accounts }) {
+        const matcher = '([a-z0-5][a-z0-5.]{0,11})';
+        let re = false;
+
+        switch (to) {
+            case 'gls.vesting':
+                re = `^send to: ${matcher};`;
+                break;
+            case 'cyber.stake':
+                re = `^${matcher}( |$)`;
+                break;
+        }
+
+        if (re) {
+            const match = memo.match(re);
+            if (match) {
+                accounts[match[1]] = true;
+            }
+        }
+    }
+
     async _extractAccounts({ code, action, args }) {
         const accounts = {};
 
         if (code === 'cyber.token') {
             switch (action) {
+                case 'transfer':
+                    accounts[args.from] = true;
+                    this._accountFromTransferMemo({ to: args.to, memo: args.memo, accounts });
+                    return accounts;
+
                 case 'bulktransfer':
                     accounts[args.from] = true;
 
                     for (const { to, memo } of args.recipients) {
                         accounts[to] = true;
-
-                        const match = memo.match(/^send to: ([a-z0-5.]+);/);
-
-                        if (match) {
-                            accounts[match[1]] = true;
-                        }
+                        this._accountFromTransferMemo({ to, memo, accounts });
                     }
 
                     return accounts;
@@ -579,24 +600,26 @@ class Subscriber extends BasicService {
 
         const entries = [];
 
-        const buffer = Buffer.from(hexAbi, 'hex');
-        const abi = CyberwayClient.get().rawAbiToJson(buffer);
+        if (hexAbi.length) {
+            const buffer = Buffer.from(hexAbi, 'hex');
+            const abi = CyberwayClient.get().rawAbiToJson(buffer);
 
-        for (const { name, type } of abi.actions) {
-            const struct = abi.structs.find(({ name }) => name === type);
+            for (const { name, type } of abi.actions) {
+                const struct = abi.structs.find(({ name }) => name === type);
 
-            if (struct.base) {
-                Logger.error('Unsupported case, structure with base:', struct);
+                if (struct.base) {
+                    Logger.error('Unsupported case, structure with base:', struct);
+                }
+
+                entries.push({
+                    account,
+                    blockNum,
+                    action: name,
+                    accountPaths: struct.fields
+                        .filter(field => field.type === 'name')
+                        .map(field => field.name),
+                });
             }
-
-            entries.push({
-                account,
-                blockNum,
-                action: name,
-                accountPaths: struct.fields
-                    .filter(field => field.type === 'name')
-                    .map(field => field.name),
-            });
         }
 
         return {
