@@ -9,12 +9,13 @@ const ServiceMetaModel = require('../models/ServiceMeta');
 const TransactionModel = require('../models/Transaction');
 const AccountPathModel = require('../models/AccountPath');
 const AccountModel = require('../models/Account');
+const AccountBucketModel = require('../models/AccountBucket');
 const TokenBalanceModel = require('../models/TokenBalance');
 const StakeAgentModel = require('../models/StakeAgent');
 const Schedule = require('../controllers/Schedule');
 const CyberwayClient = require('../utils/Cyberway');
 const AccountPathsCache = require('../utils/AccountPathsCache');
-const { extractByPath } = require('../utils/common');
+const { extractByPath, saveModelIgnoringDups, dateToBucketId } = require('../utils/common');
 
 class Subscriber extends BasicService {
     async start() {
@@ -146,16 +147,21 @@ class Subscriber extends BasicService {
             eventNames: Object.keys(blockIndexes.eventNames),
         });
 
-        try {
-            await blockModel.save();
+        await saveModelIgnoringDups(blockModel);
 
-            metrics.inc('saved_blocks_count');
-        } catch (err) {
-            // В случае дубликации ничего не делаем.
-            if (!(err.name === 'MongoError' && err.code === 11000)) {
-                throw err;
-            }
-        }
+        const bucket = {
+            bucket: dateToBucketId(block.blockTime),
+            account: block.producer,
+        };
+
+        await AccountBucketModel.updateOne(
+            bucket,
+            {
+                $inc: { blocksCount: 1 },
+                $set: bucket,
+            },
+            { upsert: true }
+        );
 
         if (transactions) {
             try {

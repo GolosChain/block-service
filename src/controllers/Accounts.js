@@ -1,7 +1,8 @@
 const AccountModel = require('../models/Account');
 const BalanceModel = require('../models/TokenBalance');
 const StakeAgentModel = require('../models/StakeAgent');
-const { saveModelIgnoringDups } = require('../utils/common');
+const Schedule = require('../controllers/Schedule');
+const { saveModelIgnoringDups, dateToBucketId } = require('../utils/common');
 
 class Accounts {
     constructor({ dataActualizer }) {
@@ -31,19 +32,37 @@ class Accounts {
             account.keys = {};
         }
 
-        await Promise.all([
-            (async () => {
-                account.grants = await this._dataActualizer.getGrants({ account: accountId });
-            })(),
-            (async () => {
-                account.tokens = await this.getTokens(accountId);
-            })(),
-            (async () => {
-                account.agentProps = await this.getAgentProps(accountId);
-            })(),
+        const [grants, tokens, agentProps, buckets] = await Promise.all([
+            this._dataActualizer.getGrants({ account: accountId }),
+            this.getTokens(accountId),
+            this.getAgentProps(accountId),
+            Schedule.getBuckets({ accounts: [accountId] }),
         ]);
 
-        return account;
+        let producingStats = { buckets };
+        const now = new Date();
+        const bucketId = dateToBucketId(now);
+        const currentBucket = buckets.find(x => x.bucket === bucketId);
+
+        if (currentBucket) {
+            const dayAgo = new Date(now.getTime() - 1000 * 3600 * 24);
+            const weekAgo = new Date(now.getTime() - 1000 * 3600 * 24 * 7);
+            const matchD = { blockTime: { $gt: dayAgo } };
+            const matchW = { blockTime: { $gt: weekAgo } };
+            const queryD = { producers: [accountId], match: matchD };
+            const queryW = { ...queryD, match: matchW };
+            const counts = await Promise.all([
+                Schedule.countBlocks(queryD),
+                Schedule.countMisses(queryD),
+                Schedule.countBlocks(queryW),
+                Schedule.countMisses(queryW),
+            ]);
+            const [dayBlocks, dayMisses, weekBlocks, weekMisses] = counts.map(x => x[accountId]);
+
+            producingStats = { buckets, dayBlocks, dayMisses, weekBlocks, weekMisses };
+        }
+
+        return { ...account, grants, tokens, agentProps, producingStats };
     }
 
     async getTokens(account) {

@@ -53,7 +53,6 @@ class GenesisContent {
             registrationTime = new Date(created + 'Z');
         }
 
-        // TODO: fix EE genesis to contain complete key data https://github.com/cyberway/cyberway/issues/1120
         const makePermission = keys => {
             return {
                 threshold: 1, // will be wrong for owner with recovery
@@ -72,9 +71,9 @@ class GenesisContent {
             reputation,
             registrationTime,
             keys: {
-                owner: makePermission(data.owner_keys),
-                active: makePermission(data.active_keys),
-                posting: makePermission(data.posting_keys),
+                owner: data.owner_keys ? makePermission(data.owner_keys) : data.owner_auth,
+                active: data.active_keys ? makePermission(data.active_keys) : data.active_auth,
+                posting: data.posting_keys ? makePermission(data.posting_keys) : data.posting_auth,
             },
         });
         this._balancesBulk.addEntry({

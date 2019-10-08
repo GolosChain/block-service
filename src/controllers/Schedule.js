@@ -3,8 +3,9 @@ const { Logger } = core.utils;
 const LogModel = require('../models/Log');
 const BlockModel = require('../models/Block');
 const MissedBlockModel = require('../models/MissedBlock');
+const AccountBucketModel = require('../models/AccountBucket');
 const ScheduleStateModel = require('../models/ScheduleState');
-const { saveModelIgnoringDups } = require('../utils/common');
+const { saveModelIgnoringDups, arrayToDict, dateToBucketId } = require('../utils/common');
 
 const LOG_MISSED_BLOCKS = false;
 
@@ -171,7 +172,9 @@ class Schedule {
         if (LOG_MISSED_BLOCKS) {
             Logger.info('Miss:', skippers.toString(), blockNum);
         }
+
         const all = [];
+
         for (const producer of skippers) {
             time = new Date(time.getTime() + 3000);
             const miss = new MissedBlockModel({
@@ -180,7 +183,24 @@ class Schedule {
                 producer,
             });
             all.push(saveModelIgnoringDups(miss));
+
+            const bucket = {
+                bucket: dateToBucketId(time),
+                account: producer,
+            };
+
+            all.push(
+                AccountBucketModel.updateOne(
+                    bucket,
+                    {
+                        $inc: { missesCount: 1 },
+                        $set: bucket,
+                    },
+                    { upsert: true }
+                )
+            );
         }
+
         await Promise.all(all);
     }
 
@@ -270,11 +290,7 @@ class Schedule {
             },
         ]);
 
-        const result = {};
-        for (const i of misses) {
-            result[i._id] = i.count;
-        }
-        return result;
+        return arrayToDict({ array: misses, key: '_id', singleValue: 'count' });
     }
 
     static async countBlocks({ producers, match }) {
@@ -294,11 +310,40 @@ class Schedule {
             },
         ]);
 
-        const result = {};
-        for (const i of blocks) {
-            result[i._id] = { count: i.count, latest: i.latest };
+        return arrayToDict({ array: blocks, key: '_id' });
+    }
+
+    static async countTotals({ accounts }) {
+        const totals = await AccountBucketModel.aggregate([
+            {
+                $match: { account: { $in: accounts } },
+            },
+            {
+                $group: {
+                    _id: '$account',
+                    blocksCount: { $sum: '$blocksCount' },
+                    missesCount: { $sum: '$missesCount' },
+                },
+            },
+        ]);
+
+        return arrayToDict({ array: totals, key: '_id' });
+    }
+
+    static async getBuckets({ accounts, buckets }) {
+        const query = { account: { $in: accounts } };
+
+        if (buckets !== undefined) {
+            query.bucket = { $in: buckets };
         }
-        return result;
+
+        return await AccountBucketModel.find(query, {
+            _id: 0,
+            bucket: 1,
+            account: 1,
+            blocksCount: 1,
+            missesCount: 1,
+        });
     }
 }
 
