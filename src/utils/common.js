@@ -23,17 +23,39 @@ function extractByPath(data, path) {
     }
 }
 
-async function saveModelIgnoringDups(model) {
+async function saveModelIgnoringDups(model, errName) {
     try {
         await model.save();
     } catch (err) {
-        if (!(err.name === 'MongoError' && err.code === 11000)) {
+        if (errName === undefined) {
+            errName = 'MongoError';
+        }
+        if (!(err.name === errName && err.code === 11000)) {
             throw err;
         }
     }
 }
 
+// use 2-digits Year and Month (starts from 0) as id (e.g. "1909" for October 2019)
+function dateToBucketId(date) {
+    return `${(date.getYear() - 100) * 100 + date.getMonth()}`;
+}
+
+function arrayToDict({ array, key, singleValue }) {
+    const result = {};
+
+    for (const item of array) {
+        const k = item[key];
+        delete item[key];
+        result[k] = singleValue === undefined ? item : item[singleValue];
+    }
+
+    return result;
+}
+
 module.exports = {
     extractByPath,
     saveModelIgnoringDups,
+    dateToBucketId,
+    arrayToDict,
 };

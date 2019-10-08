@@ -26,22 +26,25 @@ class Chain {
             const accounts = items.map(({ account }) => account);
             const now = new Date();
             const weekAgo = new Date(now.getTime() - 1000 * 3600 * 24 * 7);
-            const [weekMissed, allMissed, produced] = await Promise.all([
-                Schedule.countMisses({
-                    producers: accounts,
-                    match: { blockTime: { $gt: weekAgo } },
-                }),
-                Schedule.countMisses({ producers: accounts }),
-                Schedule.countBlocks({ producers: accounts }),
+            const query = {
+                producers: accounts,
+                match: { blockTime: { $gt: weekAgo } },
+            };
+            const [weekMissed, weekBlocks, totals] = await Promise.all([
+                Schedule.countMisses(query),
+                Schedule.countBlocks(query),
+                Schedule.countTotals({ accounts }),
             ]);
 
             for (const item of items) {
                 const { account } = item;
-                const { count, latest } = produced[account] || {};
+                const { count: weekProduced, latest } = weekBlocks[account] || {};
+                const { blocksCount, missesCount } = totals[account] || {};
 
+                item.weekProduced = weekProduced || 0;
                 item.weekMissed = weekMissed[account] || 0;
-                item.allMissed = allMissed[account] || 0;
-                item.produced = count || 0;
+                item.produced = blocksCount || 0;
+                item.missed = missesCount || 0;
                 item.latestBlock = latest;
             }
 
