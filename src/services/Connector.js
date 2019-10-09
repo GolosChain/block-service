@@ -1,3 +1,4 @@
+const env = require('../data/env');
 const core = require('cyberway-core-service');
 const BasicConnector = core.services.Connector;
 
@@ -143,6 +144,11 @@ class Connector extends BasicConnector {
                     scope: this._chain,
                     validation: {},
                 },
+                getTokensExt: {
+                    handler: this._chain.getTokensExt,
+                    scope: this._chain,
+                    validation: {},
+                },
             },
             serverDefaults: {
                 parents: {
@@ -177,6 +183,9 @@ class Connector extends BasicConnector {
                         },
                     },
                 },
+            },
+            requiredClients: {
+                stateReader: env.CBW_STATE_READER_CONNECT,
             },
         });
     }

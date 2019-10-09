@@ -41,12 +41,8 @@ class Graphs {
             stats.reverse();
         };
 
-        putToIntervals(blocks, stats, producers, x => {
-            return x.counters.current.transactions.executed;
-        });
-        putToIntervals(misses, missed, skippers, () => {
-            return 1;
-        });
+        putToIntervals(blocks, stats, producers, x => x.counters.current.transactions.executed);
+        putToIntervals(misses, missed, skippers, () => 1);
 
         return {
             from: hourAgo,

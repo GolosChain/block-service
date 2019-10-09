@@ -5,6 +5,11 @@ class Chain {
         this._dataActualizer = dataActualizer;
     }
 
+    // can't set it in constructor because of circular dependence
+    setStateReader(reader) {
+        this._stateReader = reader;
+    }
+
     async getProducers() {
         const { producers, updateTime } = this._dataActualizer.getProducers();
 
@@ -125,6 +130,37 @@ class Chain {
         }
 
         return validators;
+    }
+
+    async getTokensExt() {
+        const nulls = ['cyber.null', 'kjcr1ce14ztf', 'i5cdnkenkvcd', 'yglszdxxo4xg']; // Golos miners,null,temp
+        const cyberFunds = ['cyber.appfund', 'cyber.stake', 'cyber.worker', 'cyber.names'];
+        const golosFunds = ['gls.vesting', 'gls.publish', 'gls.worker'];
+        const [tokens, specialBalances] = await Promise.all([
+            this._stateReader.getTokens(),
+            this._stateReader.getBalances({ accounts: [...nulls, ...cyberFunds, ...golosFunds] }),
+        ]);
+
+        const { items } = tokens;
+        for (const item of items) {
+            const { symbol } = item;
+            const precision = (item.supply.split(' ')[0].split('.')[1] || '').length;
+            const sum = specialBalances.items.reduce(
+                (sum, x) => {
+                    if (x.symbol === symbol) {
+                        const key = nulls.indexOf(x.account) < 0 ? 'funds' : 'nulls';
+                        sum[key] += parseFloat(x.balance.split(' ')[0]);
+                    }
+                    return sum;
+                },
+                { nulls: 0, funds: 0 }
+            );
+
+            item.nulls = `${sum.nulls.toFixed(precision)} ${symbol}`;
+            item.funds = `${sum.funds.toFixed(precision)} ${symbol}`;
+        }
+
+        return { items };
     }
 }
 

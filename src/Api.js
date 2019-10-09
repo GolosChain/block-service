@@ -5,6 +5,7 @@ const Blocks = require('./controllers/Blocks');
 const Graphs = require('./controllers/Graphs');
 const Accounts = require('./controllers/Accounts');
 const Chain = require('./controllers/Chain');
+const StateReader = require('./controllers/StateReader');
 const DataActualizer = require('./services/DataActualizer');
 const Connector = require('./services/Connector');
 const ServiceMetaModel = require('./models/ServiceMeta');
@@ -16,8 +17,6 @@ class ApiMain extends BasicMain {
         this.startMongoBeforeBoot();
 
         this._actualizer = new DataActualizer();
-
-        this.addNested(this._actualizer);
 
         this._blocks = new Blocks();
         this._graphs = new Graphs();
@@ -36,6 +35,11 @@ class ApiMain extends BasicMain {
         });
 
         this.addNested(this._connector);
+        this.addNested(this._actualizer);
+
+        this._stateReader = new StateReader({ connector: this._connector });
+        this._chain.setStateReader(this._stateReader);
+        this._actualizer.setStateReader(this._stateReader);
     }
 
     async boot() {
