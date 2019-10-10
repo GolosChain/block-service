@@ -133,12 +133,12 @@ class Chain {
     }
 
     async getTokensExt() {
-        const nulls = ['cyber.null', 'kjcr1ce14ztf', 'i5cdnkenkvcd', 'yglszdxxo4xg']; // Golos miners,null,temp
+        const burned = ['cyber.null', 'kjcr1ce14ztf', 'i5cdnkenkvcd', 'yglszdxxo4xg']; // Golos miners,null,temp
         const cyberFunds = ['cyber.appfund', 'cyber.stake', 'cyber.worker', 'cyber.names'];
         const golosFunds = ['gls.vesting', 'gls.publish', 'gls.worker'];
         const [tokens, specialBalances] = await Promise.all([
             this._stateReader.getTokens(),
-            this._stateReader.getBalances({ accounts: [...nulls, ...cyberFunds, ...golosFunds] }),
+            this._stateReader.getBalances({ accounts: [...burned, ...cyberFunds, ...golosFunds] }),
         ]);
 
         const { items } = tokens;
@@ -148,7 +148,7 @@ class Chain {
             const sum = specialBalances.items.reduce(
                 (sum, x) => {
                     if (x.symbol === symbol) {
-                        const key = nulls.indexOf(x.account) < 0 ? 'funds' : 'nulls';
+                        const key = burned.includes(x.account) ? 'funds' : 'nulls';
                         sum[key] += parseFloat(x.balance.split(' ')[0]);
                     }
                     return sum;

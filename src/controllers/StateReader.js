@@ -3,6 +3,8 @@ const Basic = core.controllers.Basic;
 
 class StateReader extends Basic {
     constructor(...args) {
+        super(...args);
+
         const getMethodsWhiteilst = [
             'Tokens',
             'Balances',
@@ -16,14 +18,10 @@ class StateReader extends Basic {
             'Delegations',
         ];
 
-        super(...args);
         for (const name of getMethodsWhiteilst) {
             const method = `get${name}`;
 
-            this[method] = async params => {
-                if (params === undefined) {
-                    params = {};
-                }
+            this[method] = async (params = {}) => {
                 return await this._callService({ params, method });
             };
         }
