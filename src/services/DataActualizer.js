@@ -8,6 +8,10 @@ const REFRESH_INTERVAL = 60 * 1000;
 const ACCOUNTS_CACHE_EXPIRE = 2 * 60 * 1000;
 
 class DataActualizer extends BasicService {
+    setStateReader(reader) {
+        this._stateReader = reader;
+    }
+
     async start() {
         this._stakeStat = null;
         this._tokensStats = null;
@@ -45,31 +49,11 @@ class DataActualizer extends BasicService {
             }
         }
 
-        for (const acc of Object.keys(missing)) {
-            const data = await this._callChainApi({
-                endpoint: 'get_table_rows',
-                args: {
-                    code: '',
-                    scope: '',
-                    table: 'username',
-                    index: 'owner',
-                    limit: 1,
-                    lower_bound: { scope: 'gls', name: '', owner: acc },
-                },
-            });
-
-            let ok = data && data.rows && data.rows.length === 1;
-
-            if (ok) {
-                const row = data.rows[0];
-                ok = row.scope === 'gls' && row.owner === acc;
-                if (ok) {
-                    usernames[acc] = this._usernamesCache[acc] = row.name;
-                }
-            }
-
-            if (!ok) {
-                Logger.warn('Failed to fetch username of', acc);
+        const toFetch = Object.keys(missing);
+        if (toFetch.length && this._stateReader) {
+            const { items } = await this._stateReader.getUsernames({ accounts: toFetch });
+            for (const { owner, name } of items) {
+                usernames[owner] = this._usernamesCache[owner] = name;
             }
         }
         return usernames;
