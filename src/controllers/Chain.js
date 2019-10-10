@@ -148,7 +148,7 @@ class Chain {
             const sum = specialBalances.items.reduce(
                 (sum, x) => {
                     if (x.symbol === symbol) {
-                        const key = burned.includes(x.account) ? 'funds' : 'nulls';
+                        const key = burned.includes(x.account) ? 'nulls' : 'funds';
                         sum[key] += parseFloat(x.balance.split(' ')[0]);
                     }
                     return sum;
