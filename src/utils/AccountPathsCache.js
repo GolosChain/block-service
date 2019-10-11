@@ -7,18 +7,84 @@ class AccountPathsCache {
         this._cache = new Map();
     }
 
+    _accountFromTransferMemo({ to, memo, accounts }) {
+        const matcher = '([a-z0-5][a-z0-5.]{0,11})';
+        let re = false;
+
+        switch (to) {
+            case 'gls.vesting':
+                re = `^send to: ${matcher};`;
+                break;
+            case 'cyber.stake':
+                re = `^${matcher}( |$)`;
+                break;
+        }
+
+        if (re) {
+            const match = memo.match(re);
+            if (match) {
+                accounts[match[1]] = true;
+            }
+        }
+        accounts[to] = true;
+    }
+
+    extractIndirectAccounts({ code, action, args, accounts }) {
+        let extracted = false;
+
+        if (code === 'cyber.token') {
+            const { from, to, recipients, memo } = args;
+
+            switch (action) {
+                case 'transfer':
+                    this._accountFromTransferMemo({ to, memo, accounts });
+                    extracted = true;
+                    break;
+
+                case 'bulktransfer':
+                    for (const { to, memo } of recipients) {
+                        this._accountFromTransferMemo({ to, memo, accounts });
+                    }
+                    extracted = true;
+                    break;
+            }
+
+            if (extracted) {
+                accounts[from] = true;
+            }
+        }
+        return extracted;
+    }
+
+    // TODO: when update system/dapp contract, use new abi instead of hardcoded paths
     async get(account, action) {
         if (account === 'cyber') {
             switch (action) {
                 case 'newaccount':
-                    return [['creator'], ['name']];
+                    return [
+                        'creator',
+                        'name',
+                        'owner/accounts/permission/actor',
+                        'active/accounts/permission/actor',
+                    ];
                 case 'updateauth':
-                    return [['account'], ['auth', 'accounts', 'permission', 'actor']];
+                    return ['account', 'auth/accounts/permission/actor'];
                 case 'deleteauth':
-                    return [['account']];
+                    return ['account'];
                 case 'linkauth':
                 case 'unlinkauth':
-                    return [['account'], ['code']];
+                    return ['account', 'code'];
+                case 'setcode':
+                case 'setabi':
+                    return ['account'];
+                case 'reqauth':
+                    return ['from'];
+                case 'bidname':
+                    return ['bidder', 'newname'];
+                case 'bidrefund':
+                    return ['bidder'];
+                case 'providebw':
+                    return ['provider', 'account'];
                 default:
                 // Do nothing
             }
@@ -27,15 +93,42 @@ class AccountPathsCache {
         if (account === 'cyber.domain') {
             switch (action) {
                 case 'newusername':
-                    return [['creator'], ['owner']];
+                    return ['creator', 'owner'];
                 case 'newdomain':
-                    return [['creator']];
+                    return ['creator'];
                 case 'passdomain':
-                    return [['from'], ['to']];
+                    return ['from', 'to'];
                 case 'linkdomain':
-                    return [['owner'], ['to']];
+                    return ['owner', 'to'];
                 case 'unlinkdomain':
-                    return [['owner']];
+                    return ['owner'];
+                case 'biddomain':
+                case 'biddmrefund':
+                    return ['bidder'];
+                // TODO: declarenames should be hanled specially #53
+                default:
+                // Do nothing
+            }
+        }
+
+        if (account === 'cyber.govern') {
+            // only internal
+            Logger.warn(`Unexpected: ${account}::${action}`);
+        }
+
+        if (account === 'cyber.msig') {
+            switch (action) {
+                case 'propose':
+                    return ['proposer', 'requested/actor'];
+                case 'approve':
+                case 'unapprove':
+                    return ['proposer', 'level/actor'];
+                case 'cancel':
+                    return ['proposer', 'canceler'];
+                case 'exec':
+                    return ['proposer', 'executer'];
+                case 'invalidate':
+                    return ['account'];
                 default:
                 // Do nothing
             }
@@ -43,14 +136,25 @@ class AccountPathsCache {
 
         if (account === 'gls.vesting') {
             switch (action) {
+                case `setparams`:
+                    return ['params/provider/actor'];
                 case 'open':
-                    return [['ram_payer'], ['owner']];
+                    return ['owner', 'ram_payer'];
                 case 'withdraw':
-                    return [['from'], ['to']];
+                    return ['from', 'to'];
                 case 'retire':
-                    return [[], ['user']]; // signed by issuer
-                // case 'delegate': // both signatures here
-                // case 'undelegate': // this one is more tricky, "mention" party is one who didn't signed
+                    return ['user'];
+                case 'stopwithdraw':
+                case 'unlocklimit':
+                case 'close':
+                    return ['owner'];
+                case 'delegate':
+                case 'undelegate':
+                    return ['delegator', 'delegatee'];
+                case 'create':
+                    return ['notify_acc'];
+                case 'procwaiting':
+                    return ['payer'];
                 default:
                 // Do nothing
             }
@@ -59,18 +163,21 @@ class AccountPathsCache {
         if (account === 'cyber.token') {
             switch (action) {
                 case 'open':
+                    return ['owner', 'ram_payer'];
                 case 'claim':
                 case 'close':
-                    return [['owner']];
+                    return ['owner'];
                 case 'create':
-                    return [['issuer']];
+                    return ['issuer'];
                 case 'issue':
-                    return [['to']];
+                    return ['to'];
+                case 'retire':
+                    return [];
                 case 'transfer':
                 case 'payment':
-                    return [['from'], ['to']];
+                    return ['from', 'to'];
                 case 'bulkpayment':
-                    return [['from'], ['recipients', 'to']];
+                    return ['from', 'recipients/to'];
                 default:
                 // Do nothing
             }
@@ -78,24 +185,42 @@ class AccountPathsCache {
 
         if (account === 'cyber.stake') {
             switch (action) {
+                case 'create':
+                case 'enable':
+                    return [];
                 case 'open':
-                    return [['owner'], ['ram_payer']];
+                    return ['owner', 'ram_payer'];
                 case 'delegatevote':
                 case 'recallvote':
                 case 'setgrntterms':
                 case 'delegateuse':
                 case 'recalluse':
                 case 'claim':
-                    return [['grantor_name'], ['recipient_name']];
+                    return ['grantor_name', 'recipient_name'];
                 case 'withdraw':
                 case 'setkey':
                 case 'setminstaked':
                 case 'setproxyfee':
                 case 'setproxylvl':
                 case 'updatefunds':
-                    return [['account']];
+                    return ['account'];
                 case 'pick':
-                    return [['accounts']];
+                    return ['accounts'];
+                // case 'reward': // only called internally, have no named field; TODO: resolve
+                //     return ['rewards/0'];
+                default:
+                // Do nothing
+            }
+        }
+
+        if (account === 'gls.emit') {
+            switch (action) {
+                case 'setparams':
+                    return ['params/pools/name', 'params/provider/actor'];
+                case 'emit':
+                case 'start':
+                case 'stop':
+                    return [];
                 default:
                 // Do nothing
             }
@@ -104,16 +229,92 @@ class AccountPathsCache {
         if (account === 'gls.publish') {
             switch (action) {
                 case 'createmssg':
+                    return ['message_id/author', 'parent_id/author', 'beneficiaries/account'];
                 case 'updatemssg':
                 case 'deletemssg':
-                    return [['message_id', 'author']];
+                case 'setcurprcnt':
+                case 'setmaxpayout':
+                case 'paymssgrwrd':
+                    return ['message_id/author'];
                 case 'upvote':
                 case 'unvote':
                 case 'downvote':
-                    return [['voter'], ['message_id', 'author']];
+                    return ['voter', 'message_id/author'];
                 case 'reblog':
                 case 'erasereblog':
-                    return [['rebloger'], ['message_id', 'author']];
+                    return ['rebloger', 'message_id/author'];
+                case 'setrules':
+                case 'setlimits':
+                    return [];
+                case 'setparams':
+                    return ['params/value', 'params/actor'];
+                case 'calcrwrdwt':
+                case 'deletevotes':
+                    return ['account'];
+                case 'closemssgs':
+                    return ['payer'];
+                default:
+                // Do nothing
+            }
+        }
+
+        if (account === 'gls.ctrl') {
+            switch (action) {
+                case 'setparams':
+                    return ['params/name', 'params/provider/actor'];
+                case 'regwitness':
+                case 'unregwitness':
+                case 'stopwitness':
+                case 'startwitness':
+                    return ['witness'];
+                case 'votewitness':
+                case 'unvotewitn':
+                    return ['voter', 'witness'];
+                case 'changevest':
+                    return ['who'];
+                default:
+                // Do nothing
+            }
+        }
+
+        if (account === 'gls.charge') {
+            switch (action) {
+                case 'use':
+                case 'usenotifygt':
+                case 'usenotifylt':
+                    return ['user'];
+                case 'setrestorer':
+                    return [];
+                default:
+                // Do nothing
+            }
+        }
+
+        if (account === 'gls.social') {
+            switch (action) {
+                case 'pin':
+                case 'addpin':
+                case 'unpin':
+                    return ['pinner', 'pinning'];
+                case 'block':
+                case 'addblock':
+                case 'unblock':
+                    return ['blocker', 'blocking'];
+                case 'updatemeta':
+                case 'deletemeta':
+                    return ['account'];
+                default:
+                // Do nothing
+            }
+        }
+
+        if (account === 'gls.referral') {
+            switch (action) {
+                case 'setparams':
+                case 'closeoldref':
+                    return [];
+                case 'addreferral':
+                    return ['referrer', 'referral'];
                 default:
                 // Do nothing
             }
@@ -144,7 +345,7 @@ class AccountPathsCache {
             );
 
             if (!actionPathsModel) {
-                Logger.warn(`AccountPath not found for contract: ${account}::${action}`);
+                Logger.warn(`AccountPath not found for action: ${account}::${action}`);
                 actionPathsModel = {};
             }
 
