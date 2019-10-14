@@ -5,6 +5,7 @@ const AccountPathModel = require('../models/AccountPath');
 class AccountPathsCache {
     constructor() {
         this._cache = new Map();
+        this._reCache = {};
     }
 
     _accountFromTransferMemo({ to, memo, accounts }) {
@@ -21,7 +22,12 @@ class AccountPathsCache {
         }
 
         if (re) {
-            const match = memo.match(re);
+            let regexp = this._reCache[re];
+            if (!regexp) {
+                regexp = new RegExp(re);
+                this._reCache[re] = regexp;
+            }
+            const match = memo.match(regexp);
             if (match) {
                 accounts[match[1]] = true;
             }
@@ -85,6 +91,8 @@ class AccountPathsCache {
                     return ['bidder'];
                 case 'providebw':
                     return ['provider', 'account'];
+                case 'checkwin':
+                    return [];
                 default:
                 // Do nothing
             }

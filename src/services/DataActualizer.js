@@ -36,8 +36,8 @@ class DataActualizer extends BasicService {
     }
 
     async getUsernames(accounts) {
-        let usernames = {};
-        let missing = {}; // use object instead of array to avoid duplicates
+        const usernames = {};
+        const missing = {}; // use object instead of array to avoid duplicates
 
         for (const acc of accounts) {
             let username = this._usernamesCache[acc];
