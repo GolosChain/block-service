@@ -433,6 +433,11 @@ class Subscriber extends BasicService {
                 }
 
                 Object.assign(accounts, actionAccounts);
+
+                if (actionObject.data === '') {
+                    actionObject.data = undefined;
+                }
+                actionObject.accounts = Object.keys(actionAccounts);
             }
 
             if (events) {
