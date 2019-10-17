@@ -35,6 +35,7 @@ class DataActualizer extends BasicService {
         };
     }
 
+    // TODO: cache negative results (accounts without usernames) to fetch them at most once/period
     async getUsernames(accounts) {
         const usernames = {};
         const missing = {}; // use object instead of array to avoid duplicates
@@ -67,43 +68,13 @@ class DataActualizer extends BasicService {
         const now = Date.now();
         let grants = this._grantsCache[account];
 
+        // it's now cached, but when user changes/removes grant, it should be invalidated. TODO: resolve
         if (!grants || now - grants.updateTime > ACCOUNTS_CACHE_EXPIRE) {
-            const data = await this._callChainApi({
-                endpoint: 'get_table_rows',
-                args: {
-                    code: '',
-                    scope: '',
-                    table: 'stake.grant',
-                    index: 'bykey',
-                    limit: 30,
-                    lower_bound: {
-                        token_code: 'CYBER',
-                        grantor_name: account,
-                        recipient_name: '',
-                    },
-                    upper_bound: {
-                        token_code: 'CYBER',
-                        grantor_name: account,
-                        recipient_name: 'zzzzzzzzzzzz',
-                    },
-                },
-            });
+            const fields = ['recipient_name', 'pct', 'share', 'break_fee', 'break_min_own_staked'];
+            const { items } = await this._stateReader.getStakeGrants({ grantor: account, fields });
 
-            grants = {
-                updateTime: new Date(now),
-                items: data.rows
-                    .filter(grant => grant.token_code === 'CYBER' && grant.grantor_name === account)
-                    .map(({ recipient_name, pct, share, break_fee, break_min_own_staked }) => ({
-                        accountId: recipient_name,
-                        pct,
-                        share,
-                        breakFee: break_fee,
-                        breakMinStaked: break_min_own_staked,
-                    })),
-            };
-
-            await this.addUsernames(grants.items, 'accountId');
-
+            await this.addUsernames(items, 'recipient');
+            grants = { updateTime: new Date(now), items };
             this._grantsCache[account] = grants;
         }
 
@@ -111,7 +82,7 @@ class DataActualizer extends BasicService {
     }
 
     _tokenAmount(tokenString) {
-        return parseInt(tokenString.split(' ')[0].replace('.', ''));
+        return parseInt(tokenString.replace('.', ''));
     }
 
     getValidators() {
@@ -119,64 +90,16 @@ class DataActualizer extends BasicService {
             items: this._validators,
             updateTime: this._validatorsUpdateTime,
             supply: this._tokenAmount(this._tokensStats.supply),
-            totalStaked: this._stakeStat.total_staked,
-            totalVotes: this._stakeStat.total_votes,
+            ...(this._stakeStat || {}),
         };
     }
 
-    _getValidTableRow({ data, filter, strictOneRow }) {
-        const rows = this._filterTableRows({ data, filter });
-        return rows && rows.length && (!strictOneRow || rows.length == 1) ? rows[0] : null;
-    }
-
-    _filterTableRows({ data, filter }) {
-        let rows = null;
-
-        if (data && Array.isArray(data.rows)) {
-            rows = data.rows.filter(row => {
-                for (const [key, value] of Object.entries(filter)) {
-                    if (row[key] !== value) {
-                        return false;
-                    }
-                }
-                return true;
-            });
-        } else {
-            throw new Error('Unexpected response of get_table_rows');
-        }
-
-        return rows;
-    }
-
-    async getAgent(account) {
-        const data = await this._callChainApi({
-            endpoint: 'get_table_rows',
-            args: {
-                code: '',
-                scope: '',
-                table: 'stake.agent',
-                index: 'bykey',
-                limit: 1,
-                lower_bound: {
-                    token_code: 'CYBER',
-                    account,
-                },
-            },
-        });
-
-        const agent = this._getValidTableRow({ data, filter: { account, token_code: 'CYBER' } });
-
-        if (agent) {
-            return {
-                account,
-                symbol: agent.token_code,
-                fee: agent.fee,
-                proxyLevel: agent.proxy_level,
-                minStake: agent.min_own_staked,
-            };
-        }
-
-        return null;
+    // TODO: cache
+    async getAgents({ accounts, includeShare }) {
+        const shareFields = includeShare ? ['balance', 'proxied', 'own_share', 'shares_sum'] : [];
+        const fields = ['account', 'proxy_level', 'fee', 'min_own_staked', ...shareFields];
+        const { items } = await this._stateReader.getStakeAgents({ accounts, fields });
+        return items;
     }
 
     async _callChainApi({ endpoint, args }) {
@@ -194,7 +117,6 @@ class DataActualizer extends BasicService {
         }
 
         const accounts = items.map(item => item[accountField]);
-
         const usernames = await this.getUsernames(accounts);
 
         for (const item of items) {
@@ -219,67 +141,23 @@ class DataActualizer extends BasicService {
     }
 
     async _refreshStakeStats() {
-        const stake = await this._callChainApi({
-            endpoint: 'get_table_rows',
-            args: {
-                code: '',
-                scope: '',
-                table: 'stake.stat',
-                index: 'primary',
-            },
-        });
+        const fields = ['total_staked', 'total_votes'];
 
-        this._stakeStat = stake.rows[0];
+        this._stakeStat = await this._stateReader.getStakeStat({ fields });
     }
 
     async _refreshTokenStats() {
-        const stats = await this._callChainApi({
-            endpoint: 'get_table_rows',
-            args: {
-                code: 'cyber.token',
-                scope: 'CYBER',
-                table: 'stat',
-                index: 'primary',
-            },
-        });
+        const { items } = await this._stateReader.getTokens();
 
-        this._tokensStats = stats.rows[0];
+        this._tokensStats = items.find(({ symbol }) => symbol === 'CYBER');
     }
 
     async _refreshStakeCandidates() {
-        const rows = await this._callChainApi({
-            endpoint: 'get_table_rows',
-            args: {
-                code: '',
-                scope: '',
-                table: 'stake.cand',
-                index: 'byvotes',
-                limit: 100,
-                lower_bound: {
-                    token_code: 'CYBER',
-                    enabled: true,
-                    votes: 0x7fffffffffffffff,
-                    account: '',
-                },
-            },
-        });
+        const filter = { enabled: true };
+        const { items } = await this._stateReader.getStakeCandidates({ filter, limit: 100 });
 
-        const candidates = rows.rows;
-
-        await this.addUsernames(candidates, 'account');
-
-        this._validators = candidates
-            .filter(candidate => candidate.enabled && candidate.token_code === 'CYBER')
-            .map(candidate => ({
-                account: candidate.account,
-                enabled: candidate.enabled,
-                latestPick: candidate.latest_pick + 'Z',
-                signKey: candidate.signing_key,
-                votes: candidate.votes,
-                username: candidate.username,
-                percent: (100 * candidate.votes) / this._stakeStat.total_votes,
-            }));
-
+        await this.addUsernames(items, 'account');
+        this._validators = items;
         this._validatorsUpdateTime = new Date();
     }
 

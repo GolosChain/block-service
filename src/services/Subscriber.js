@@ -11,7 +11,6 @@ const AccountPathModel = require('../models/AccountPath');
 const AccountModel = require('../models/Account');
 const AccountBucketModel = require('../models/AccountBucket');
 const TokenBalanceModel = require('../models/TokenBalance');
-const StakeAgentModel = require('../models/StakeAgent');
 const Schedule = require('../controllers/Schedule');
 const CyberwayClient = require('../utils/Cyberway');
 const AccountPathsCache = require('../utils/AccountPathsCache');
@@ -174,8 +173,6 @@ class Subscriber extends BasicService {
                     throw err;
                 }
             }
-
-            await this._extractAndSaveUsers(block);
         }
 
         await this._saveStorage(storage, block);
@@ -242,7 +239,7 @@ class Subscriber extends BasicService {
         await this._detectMissedBlocks(block);
     }
 
-    _emptyActionHandler(action) {
+    _emptyActionHandler() {
     }
 
     _newAccountAction(action, storage, stats) {
@@ -475,7 +472,6 @@ class Subscriber extends BasicService {
         await AccountModel.deleteMany(condition);
         await AccountPathModel.deleteMany(condition);
         await TokenBalanceModel.deleteMany(condition);
-        await StakeAgentModel.deleteMany(condition);
 
         this._accountPathsCache.deleteNewerThanBlockNum(baseBlockNum);
     }
@@ -656,99 +652,6 @@ class Subscriber extends BasicService {
                 }
             })
         );
-    }
-
-    async _saveAgentUpdates(agents, blockNum) {
-        if (Object.keys(agents).length === 0) {
-            return;
-        }
-
-        await Promise.all(
-            Object.keys(agents).map(async key => {
-                const [account, symbol] = key.split(' ');
-                const value = agents[key];
-
-                const previous = await StakeAgentModel.findOne(
-                    {
-                        account,
-                        symbol,
-                    },
-                    {},
-                    {
-                        sort: { blockNum: -1 },
-                        lean: true,
-                    }
-                );
-
-                let agent = {};
-                if (previous) {
-                    Object.assign(agent, previous);
-                }
-                Object.assign(agent, value);
-
-                const { fee, proxyLevel, minStake } = agent;
-                const agentModel = new StakeAgentModel({
-                    blockNum,
-                    account,
-                    symbol,
-                    fee,
-                    proxyLevel,
-                    minStake,
-                });
-
-                try {
-                    await agentModel.save();
-                } catch (err) {
-                    if (!(err.name === 'MongoError' && err.code === 11000)) {
-                        throw err;
-                    }
-                }
-            })
-        );
-    }
-
-    async _extractAndSaveUsers(block) {
-        // Not ready yet
-        return;
-
-        const mentions = [];
-
-        for (const transaction of block.transactions) {
-            for (let i = 0; i < transaction.actions.length; i++) {
-                const action = transaction.actions[i];
-
-                if (!action.args) {
-                    continue;
-                }
-
-                const method = `${action.code}->${action.action}`;
-
-                const { args } = action;
-
-                const base = {
-                    blockId: block.id,
-                    transactionId: transaction.id,
-                    actionIndex: i,
-                };
-
-                switch (method) {
-                    case 'cyber->newaccount':
-                        mentions.push(
-                            {
-                                ...base,
-                                userId: args.creator,
-                            },
-                            {
-                                ...base,
-                                userId: args.name,
-                            }
-                        );
-                        break;
-                    default:
-                        Logger.info(`Unhandled bc method ${method}:`, action);
-                }
-            }
-        }
     }
 
     _mergeStats(a, b) {

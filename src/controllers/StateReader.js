@@ -16,6 +16,10 @@ class StateReader extends Basic {
             'LastClosedBid',
             'Leaders',
             'Delegations',
+            'StakeStat',
+            'StakeAgents',
+            'StakeGrants',
+            'StakeCandidates',
         ];
 
         for (const name of getMethodsWhiteilst) {
@@ -43,6 +47,10 @@ class StateReader extends Basic {
     async getLastClosedBid() {}
     async getLeaders() {}
     async getDelegations(params) {}
+    async getStakeStat(params) {}
+    async getStakeAgents(params) {}
+    async getStakeGrants(params) {}
+    async getStakeCandidates(params) {}
     /* eslint-enable no-unused-vars */
 }
 
