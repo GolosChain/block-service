@@ -4,6 +4,33 @@ const { metrics, BulkSaver } = core.utils;
 const AccountModel = require('../models/Account');
 const BalanceModel = require('../models/TokenBalance');
 
+// this accounts are not in EE genesis, it's simpler to hardcode for now. src: https://github.com/cyberway/golos.contracts/blob/3e6b43ac70f25de8b877244881565ea3148298dc/genesis/genesis-info.json.tmpl#L52
+const GENESIS_CREATED_ACCOUNTS = [
+    'cyber',
+    'cyber.msig',
+    'cyber.domain',
+    'cyber.govern',
+    'cyber.stake',
+    'cyber.null',
+    'cyber.prods',
+    'cyber.token',
+    'cyber.names',
+    'cyber.worker',
+    'cyber.appfund',
+    'cyber.core',
+    'cyber.io',
+    'gls',
+    'gls.ctrl',
+    'gls.emit',
+    'gls.vesting',
+    'gls.publish',
+    'gls.social',
+    'gls.charge',
+    'gls.referral',
+    'gls.memo',
+    'gls.worker',
+];
+
 class GenesisContent {
     /**
      * @param {Function} onDone -- функция для остановки дальней обработки генезиса, вызывается с await.
@@ -13,6 +40,16 @@ class GenesisContent {
 
         this._accountsBulk = new BulkSaver(AccountModel, 'accounts');
         this._balancesBulk = new BulkSaver(BalanceModel, 'balances');
+
+        const registrationTime = Date.parse('2019-08-15T14:00:00.000Z');
+        for (const account of GENESIS_CREATED_ACCOUNTS) {
+            this._accountsBulk.addEntry({
+                id: account,
+                blockNum: 1,
+                registrationTime,
+                keys: {}, // keys will be obtained from state-reader #14
+            });
+        }
     }
 
     async handle(type, data) {
