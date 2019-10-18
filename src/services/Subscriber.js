@@ -256,37 +256,6 @@ class Subscriber extends BasicService {
         });
     }
 
-    _updateAgentAction(action, storage) {
-        const { args } = action;
-        const { account, token_code } = args;
-
-        if (!account || !token_code) {
-            return;
-        }
-
-        const key = `${account} ${token_code}`;
-
-        if (!storage.agents[key]) {
-            storage.agents[key] = {};
-        }
-
-        const agent = storage.agents[key];
-
-        switch (action.action) {
-            case 'setproxyfee':
-                agent.fee = args.fee;
-                break;
-            case 'setproxylvl':
-                agent.proxyLevel = args.level;
-                break;
-            case 'setminstaked':
-                agent.minStake = args.min_own_staked;
-                break;
-            default:
-                Logger.warn(`Wrong action ${action.action} passed to _updateAgentAction`);
-        }
-    }
-
     _updateBalanceEvent(event, storage) {
         const { account, balance, payments } = event.args;
         const symbol = balance.split(' ')[1];
@@ -318,7 +287,6 @@ class Subscriber extends BasicService {
         const storage = {
             newAccounts: [],
             balances: {}, // updates if several balance changes in one block
-            agents: {}, // updates if several fields of agent changed in one block
         };
 
         const tStats = stats.transactions;
@@ -332,12 +300,6 @@ class Subscriber extends BasicService {
                 const handlers = {
                     cyber: {
                         newaccount: this._newAccountAction,
-                    },
-                    'cyber.stake': {
-                        setproxyfee: this._updateAgentAction,
-                        setproxylvl: this._updateAgentAction,
-                        setminstaked: this._updateAgentAction,
-                        setkey: this._emptyActionHandler,
                     },
                     'cyber.token': {
                         EVENTS: {
@@ -600,12 +562,11 @@ class Subscriber extends BasicService {
     }
 
     async _saveStorage(storage, block) {
-        const { newAccounts, agents, balances } = storage;
+        const { newAccounts, balances } = storage;
 
         if (newAccounts.length) {
             await this._saveNewAccounts(newAccounts, block);
         }
-        await this._saveAgentUpdates(agents, block.blockNum);
         await this._saveBalanceUpdates(balances, block.blockNum);
     }
 
