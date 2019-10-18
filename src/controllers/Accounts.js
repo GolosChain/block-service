@@ -1,8 +1,7 @@
 const AccountModel = require('../models/Account');
 const BalanceModel = require('../models/TokenBalance');
-const StakeAgentModel = require('../models/StakeAgent');
 const Schedule = require('../controllers/Schedule');
-const { saveModelIgnoringDups, dateToBucketId } = require('../utils/common');
+const { dateToBucketId } = require('../utils/common');
 
 class Accounts {
     constructor({ dataActualizer }) {
@@ -32,12 +31,22 @@ class Accounts {
             account.keys = {};
         }
 
-        const [grants, tokens, agentProps, buckets] = await Promise.all([
+        const [grants, tokens, buckets] = await Promise.all([
             this._dataActualizer.getGrants({ account: accountId }),
             this.getTokens(accountId),
-            this.getAgentProps(accountId),
             Schedule.getBuckets({ accounts: [accountId] }),
         ]);
+
+        const agentsToGet = [accountId, ...grants.items.map(({ recipient }) => recipient)];
+        const agents = await this._dataActualizer.getAgents({
+            accounts: agentsToGet,
+            includeShare: true,
+        });
+        const agentProps = agents.find(({ account }) => account == accountId);
+
+        for (const grant of grants.items) {
+            grant.agent = agents.find(({ account }) => account == grant.recipient);
+        }
 
         let producingStats = { buckets };
         const now = new Date();
@@ -97,61 +106,6 @@ class Accounts {
             }
         }
         return tokens;
-    }
-
-    async getAgentProps(account) {
-        let props = await StakeAgentModel.findOne(
-            {
-                account,
-                symbol: 'CYBER',
-            },
-            {},
-            {
-                sort: { blockNum: -1 },
-                lean: true,
-            }
-        );
-
-        if (!props || props.proxyLevel === undefined) {
-            // Can't remove this branch even if read agents from genesis: agents can be created without event
-            // TODO: replace with `state-reader` when ready
-            props = await this._dataActualizer.getAgent(account);
-            if (props) {
-                const info = await this._dataActualizer.getInfo();
-                const { fee, proxyLevel, minStake } = props;
-
-                const agentModel = new StakeAgentModel({
-                    blockNum: info.head_block_num,
-                    account,
-                    symbol: 'CYBER',
-                    fee,
-                    proxyLevel,
-                    minStake,
-                });
-
-                saveModelIgnoringDups(agentModel);
-            }
-        }
-
-        if (!props) {
-            return null;
-        }
-
-        let { fee, proxyLevel, minStake } = props;
-
-        if (fee === undefined) {
-            fee = 10000;
-        }
-
-        if (minStake === undefined) {
-            minStake = 0;
-        }
-
-        return {
-            fee,
-            proxyLevel,
-            minStake,
-        };
     }
 }
 
