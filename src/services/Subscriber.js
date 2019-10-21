@@ -544,6 +544,7 @@ class Subscriber extends BasicService {
                     Logger.error('Unsupported case, structure with base:', struct);
                 }
 
+                // TODO: field type can contain name alias or struct containing name inside (recursive)
                 entries.push({
                     account,
                     blockNum,
