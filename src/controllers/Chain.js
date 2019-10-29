@@ -59,14 +59,7 @@ class Chain {
             const missing = [];
 
             for (const item of items) {
-                const props = properties.find(({ account }) => account === item.account);
-
-                if (props) {
-                    let { fee, proxyLevel, minOwnStaked: minStake } = props;
-                    if (fee !== undefined && proxyLevel !== undefined && minStake !== undefined) {
-                        item.props = { fee, proxyLevel, minStake };
-                    }
-                }
+                item.props = properties.find(({ account }) => account === item.account);
                 if (!item.props) {
                     missing.push([item.account, props]);
                 }

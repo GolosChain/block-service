@@ -113,6 +113,8 @@ class AccountPathsCache {
                 case 'biddomain':
                 case 'biddmrefund':
                     return ['bidder'];
+                case 'checkwin':
+                    return [];
                 // TODO: declarenames should be hanled specially #53
                 default:
                 // Do nothing
@@ -261,8 +263,16 @@ class AccountPathsCache {
                     return ['account'];
                 case 'closemssgs':
                     return ['payer'];
+                case 'addpermlink':
+                    return ['msg/author', 'parent/author'];
+                case 'addpermlinks':
+                    return ['permlinks/msg/author', 'permlinks/parent/author'];
+                case 'delpermlink':
+                    return ['msg/author'];
+                case 'delpermlinks':
+                    return ['permlinks/author'];
                 default:
-                // Do nothing
+                    break;
             }
         }
 
