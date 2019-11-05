@@ -53,9 +53,38 @@ function arrayToDict({ array, key, singleValue }) {
     return result;
 }
 
+// checks if empty strings have same indices in both arrays
+function matchEmpty(a, b) {
+    return a.length === b.length && a.every((x, i) => !x === !b[i]);
+}
+
+function parseName(name) {
+    const templates = [
+        ['account'],
+        ['', 'domain'],
+        ['username', 'domain'],
+        ['username', '', 'account'],
+    ];
+    const parts = name.split('@');
+
+    for (const fields of templates) {
+        if (matchEmpty(parts, fields)) {
+            const result = {};
+            for (const [field, value] of fields.map((x, i) => [x, parts[i]])) {
+                if (field) {
+                    result[field] = value;
+                }
+            }
+            return result;
+        }
+    }
+    return { bad: true };
+}
+
 module.exports = {
     extractByPath,
     saveModelIgnoringDups,
     dateToBucketId,
     arrayToDict,
+    parseName,
 };

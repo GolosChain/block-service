@@ -19,7 +19,7 @@ class DataActualizer extends BasicService {
         this._validatorsUpdateTime = null;
         this._producers = [];
         this._lastRefreshTime = null;
-        this._usernamesCache = {}; // username cache for golos domain
+        this._usernamesCache = { gls: {} }; // usernames cache by domain: {account: username}
         this._grantsCache = {};
 
         await this._refreshData();
@@ -35,29 +35,67 @@ class DataActualizer extends BasicService {
         };
     }
 
+    async getDomain(name) {
+        // there is only 2 linked domains now so hardcode. TODO: fetch from state reader
+        return {
+            golos: { owner: 'gls', linkedTo: 'gls', created: '2019-08-15T14:00:00.000Z' },
+            cyber: { owner: 'rtvmqvz3i1vt', linkedTo: '', created: '2019-08-24T08:13:51.000Z' },
+            zxcat: {
+                owner: 'xhdtonx5zvnd',
+                linkedTo: 'xhdtonx5zvnd',
+                created: '2019-09-09T10:53:45.000Z',
+            },
+        }[name];
+    }
+
     // TODO: cache negative results (accounts without usernames) to fetch them at most once/period
-    async getUsernames(accounts) {
-        const usernames = {};
+    // Note: `names` are either usernames (if `byName`) or account names
+    async getUsernames({ names, scope = 'gls', byName }) {
+        const result = {};
         const missing = {}; // use object instead of array to avoid duplicates
 
-        for (const acc of accounts) {
-            let username = this._usernamesCache[acc];
+        if (!this._usernamesCache[scope]) {
+            this._usernamesCache[scope] = {};
+        }
 
-            if (username !== undefined) {
-                usernames[acc] = username;
+        const cache = (byName ? Object.entries : x => x)(this._usernamesCache[scope]);
+
+        for (const name of names) {
+            const found = byName
+                ? (cache.find(([_, username]) => name === username) || [])[0]
+                : cache[name];
+
+            if (found !== undefined) {
+                result[name] = found;
             } else {
-                missing[acc] = true;
+                missing[name] = true;
             }
         }
 
         const toFetch = Object.keys(missing);
         if (toFetch.length && this._stateReader) {
-            const { items } = await this._stateReader.getUsernames({ accounts: toFetch });
+            const query = {
+                scope,
+                ...(byName ? { names: toFetch } : { accounts: toFetch }),
+            };
+            Logger.warn('Fetch missing: ', query);
+            const { items } = await this._stateReader.getUsernames(query);
+
             for (const { owner, name } of items) {
-                usernames[owner] = this._usernamesCache[owner] = name;
+                if (byName) {
+                    result[name] = owner;
+                } else {
+                    result[owner] = name;
+                }
+                this._usernamesCache[scope][owner] = name;
             }
         }
-        return usernames;
+        return result;
+    }
+
+    async resolveUsername({ name, scope = 'gls' }) {
+        const result = await this.getUsernames({ names: [name], scope, byName: true });
+        return (result || {})[name];
     }
 
     async getInfo() {
@@ -116,8 +154,8 @@ class DataActualizer extends BasicService {
             return;
         }
 
-        const accounts = items.map(item => item[accountField]);
-        const usernames = await this.getUsernames(accounts);
+        const names = items.map(item => item[accountField]);
+        const usernames = await this.getUsernames({ names });
 
         for (const item of items) {
             item.username = usernames[item[accountField]];

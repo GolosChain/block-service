@@ -1,14 +1,32 @@
 const AccountModel = require('../models/Account');
 const BalanceModel = require('../models/TokenBalance');
 const Schedule = require('../controllers/Schedule');
-const { dateToBucketId } = require('../utils/common');
+const { dateToBucketId, parseName } = require('../utils/common');
 
 class Accounts {
     constructor({ dataActualizer }) {
         this._dataActualizer = dataActualizer;
     }
 
-    async getAccount({ accountId }) {
+    async getAccount({ name }) {
+        const parsed = parseName(name);
+        const { bad, domain, username } = parsed; // TODO: further validate before process
+        let accountId = parsed.account;
+
+        if (!bad && domain) {
+            accountId = ((await this._dataActualizer.getDomain(domain)) || {}).linkedTo;
+        }
+        if (!bad && username && accountId) {
+            const query = { name: username, scope: accountId };
+            accountId = await this._dataActualizer.resolveUsername(query);
+        }
+        if (bad) {
+            throw { code: 500, message: 'Invalid account name' };
+        }
+        if (!accountId) {
+            throw { code: 404, message: 'Account not found' };
+        }
+
         let account = await AccountModel.findOne(
             { id: accountId },
             {
