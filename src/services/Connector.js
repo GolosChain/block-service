@@ -94,11 +94,9 @@ class Connector extends BasicConnector {
                     handler: this._accounts.getAccount,
                     scope: this._accounts,
                     validation: {
-                        required: ['accountId'],
+                        required: ['name'],
                         properties: {
-                            accountId: {
-                                type: 'string',
-                            },
+                            name: { type: 'string' },
                         },
                     },
                 },
