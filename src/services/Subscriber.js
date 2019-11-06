@@ -256,6 +256,19 @@ class Subscriber extends BasicService {
         });
     }
 
+    _newUsernameAction(action, storage) {
+        const { args } = action;
+        const { owner, name } = args;
+        const account = storage.newAccounts.find(({ id }) => id === owner);
+
+        if (account) {
+            account.golosId = name;
+            Logger.log(`Adding username "${name}" to ${owner}`);
+        } else {
+            Logger.warn(`can't add username "${name}": no account "${owner}" in current trx`);
+        }
+    }
+
     _updateBalanceEvent(event, storage) {
         const { account, balance, payments } = event.args;
         const symbol = balance.split(' ')[1];
@@ -300,6 +313,9 @@ class Subscriber extends BasicService {
                 const handlers = {
                     cyber: {
                         newaccount: this._newAccountAction,
+                    },
+                    'cyber.domain': {
+                        newusername: this._newUsernameAction,
                     },
                     'cyber.token': {
                         EVENTS: {
@@ -573,7 +589,7 @@ class Subscriber extends BasicService {
 
     async _saveNewAccounts(accounts, block) {
         await Promise.all(
-            accounts.map(async ({ id, keys }) => {
+            accounts.map(async ({ id, keys, golosId }) => {
                 const accountModel = new AccountModel({
                     blockId: block.id,
                     blockNum: block.blockNum,
@@ -581,6 +597,7 @@ class Subscriber extends BasicService {
                     registrationTime: block.blockTime,
                     id,
                     keys,
+                    golosId,
                 });
 
                 try {
