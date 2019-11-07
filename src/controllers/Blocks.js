@@ -105,7 +105,9 @@ class Blocks {
     }
 
     async getBlockTransactions({ blockId, fromIndex, limit, code, action, actor, event }) {
+        const blockNum = parseInt(blockId.substr(0, 8), 16);
         const query = {
+            blockNum, // we have db index by block num, use it
             blockId,
         };
 
@@ -132,9 +134,7 @@ class Blocks {
                 stats: true,
             },
             {
-                sort: {
-                    index: 1,
-                },
+                sort: { index: 1 },
                 limit,
                 lean: true,
             }

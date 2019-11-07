@@ -243,17 +243,28 @@ class Subscriber extends BasicService {
     }
 
     _newAccountAction(action, storage, stats) {
-        stats.accounts.created++;
-
         const { args } = action;
+        const { creator, name, owner, active } = args;
 
         storage.newAccounts.push({
-            id: args.name,
-            keys: {
-                owner: args.owner,
-                active: args.active,
-            },
+            id: name,
+            keys: { owner, active },
+            creator,
         });
+        stats.accounts.created++;
+    }
+
+    _newUsernameAction(action, storage) {
+        const { args } = action;
+        const { owner, name } = args;
+        const account = storage.newAccounts.find(({ id }) => id === owner);
+
+        if (account) {
+            account.golosId = name;
+            Logger.log(`Adding username "${name}" to ${owner}`);
+        } else {
+            Logger.warn(`can't add username "${name}": no account "${owner}" in current trx`);
+        }
     }
 
     _updateBalanceEvent(event, storage) {
@@ -300,6 +311,9 @@ class Subscriber extends BasicService {
                 const handlers = {
                     cyber: {
                         newaccount: this._newAccountAction,
+                    },
+                    'cyber.domain': {
+                        newusername: this._newUsernameAction,
                     },
                     'cyber.token': {
                         EVENTS: {
@@ -573,7 +587,7 @@ class Subscriber extends BasicService {
 
     async _saveNewAccounts(accounts, block) {
         await Promise.all(
-            accounts.map(async ({ id, keys }) => {
+            accounts.map(async ({ id, keys, golosId, creator }) => {
                 const accountModel = new AccountModel({
                     blockId: block.id,
                     blockNum: block.blockNum,
@@ -581,16 +595,11 @@ class Subscriber extends BasicService {
                     registrationTime: block.blockTime,
                     id,
                     keys,
+                    golosId,
+                    creator,
                 });
 
-                try {
-                    await accountModel.save();
-                } catch (err) {
-                    // В случае дубликации ничего не делаем.
-                    if (!(err.name === 'MongoError' && err.code === 11000)) {
-                        throw err;
-                    }
-                }
+                return saveModelIgnoringDups(accountModel);
             })
         );
     }
