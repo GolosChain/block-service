@@ -82,7 +82,20 @@ class GenesisContent {
     async finish() {}
 
     _handleAccount(data) {
-        const { owner: account, name, reputation, created, balance, balance_in_sys } = data;
+        const {
+            owner: account,
+            name,
+            reputation,
+            created,
+            balance,
+            balance_in_sys,
+            owner_keys,
+            active_keys,
+            posting_keys,
+            owner_auth,
+            active_auth,
+            posting_auth,
+        } = data;
 
         let registrationTime = null;
 
@@ -108,9 +121,9 @@ class GenesisContent {
             reputation,
             registrationTime,
             keys: {
-                owner: data.owner_keys ? makePermission(data.owner_keys) : data.owner_auth,
-                active: data.active_keys ? makePermission(data.active_keys) : data.active_auth,
-                posting: data.posting_keys ? makePermission(data.posting_keys) : data.posting_auth,
+                owner: owner_keys ? makePermission(owner_keys) : owner_auth,
+                active: active_keys ? makePermission(active_keys) : active_auth,
+                posting: posting_keys ? makePermission(posting_keys) : posting_auth,
             },
         });
         this._balancesBulk.addEntry({

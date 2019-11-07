@@ -36,6 +36,7 @@ class Accounts {
                 blockId: true,
                 keys: true,
                 registrationTime: true,
+                creator: true,
             },
             { lean: true }
         );

@@ -243,17 +243,15 @@ class Subscriber extends BasicService {
     }
 
     _newAccountAction(action, storage, stats) {
-        stats.accounts.created++;
-
         const { args } = action;
+        const { creator, name, owner, active } = args;
 
         storage.newAccounts.push({
-            id: args.name,
-            keys: {
-                owner: args.owner,
-                active: args.active,
-            },
+            id: name,
+            keys: { owner, active },
+            creator,
         });
+        stats.accounts.created++;
     }
 
     _newUsernameAction(action, storage) {
@@ -589,7 +587,7 @@ class Subscriber extends BasicService {
 
     async _saveNewAccounts(accounts, block) {
         await Promise.all(
-            accounts.map(async ({ id, keys, golosId }) => {
+            accounts.map(async ({ id, keys, golosId, creator }) => {
                 const accountModel = new AccountModel({
                     blockId: block.id,
                     blockNum: block.blockNum,
@@ -598,16 +596,10 @@ class Subscriber extends BasicService {
                     id,
                     keys,
                     golosId,
+                    creator,
                 });
 
-                try {
-                    await accountModel.save();
-                } catch (err) {
-                    // В случае дубликации ничего не делаем.
-                    if (!(err.name === 'MongoError' && err.code === 11000)) {
-                        throw err;
-                    }
-                }
+                return saveModelIgnoringDups(accountModel);
             })
         );
     }
