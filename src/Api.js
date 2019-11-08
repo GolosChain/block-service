@@ -39,6 +39,7 @@ class ApiMain extends BasicMain {
 
         this._stateReader = new StateReader({ connector: this._connector });
         this._chain.setStateReader(this._stateReader);
+        this._accounts.setStateReader(this._stateReader);
         this._actualizer.setStateReader(this._stateReader);
     }
 

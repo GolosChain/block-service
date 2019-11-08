@@ -48,7 +48,7 @@ class Graphs {
             from: hourAgo,
             to: now,
             interval,
-            series: stats.map(count => Math.round(count / interval)),
+            series: stats.map(count => count / interval),
             missed,
             producers,
             skippers,

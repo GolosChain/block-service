@@ -8,6 +8,10 @@ class Accounts {
         this._dataActualizer = dataActualizer;
     }
 
+    setStateReader(reader) {
+        this._stateReader = reader;
+    }
+
     async getAccount({ name }) {
         const parsed = parseName(name);
         const { bad, domain, username } = parsed; // TODO: further validate before process
@@ -50,10 +54,12 @@ class Accounts {
             account.keys = {};
         }
 
-        const [grants, tokens, buckets] = await Promise.all([
+        const [grants, tokens, buckets, perms, plinks] = await Promise.all([
             this._dataActualizer.getGrants({ account: accountId }),
-            this.getTokens(accountId),
+            this.getTokens({ account: accountId }),
             Schedule.getBuckets({ accounts: [accountId] }),
+            this._stateReader.getPermissions({ owner: accountId, limit: 100 }),
+            this._stateReader.getPermissionLinks({ account: accountId, limit: 100 }),
         ]);
 
         const agentsToGet = [accountId, ...grants.items.map(({ recipient }) => recipient)];
@@ -90,10 +96,27 @@ class Accounts {
             producingStats = { buckets, dayBlocks, dayMisses, weekBlocks, weekMisses };
         }
 
-        return { ...account, grants, tokens, agentProps, producingStats };
+        const permissions = {};
+        for (const { parent, name, auth, lastUpdated } of perms.items) {
+            permissions[name] = {
+                auth,
+                parent: parent === 0 ? undefined : perms.items.find(({ id }) => id === parent).name,
+                lastUpdated,
+            };
+        }
+
+        return {
+            ...account,
+            permissions,
+            permissionLinks: plinks.items,
+            grants,
+            tokens,
+            agentProps,
+            producingStats,
+        };
     }
 
-    async getTokens(account) {
+    async getTokens({ account }) {
         const balances = await BalanceModel.aggregate([
             {
                 $match: { account },
