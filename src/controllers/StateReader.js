@@ -10,6 +10,7 @@ class StateReader extends Basic {
             'Balances',
             'TopBalances',
             'Usernames',
+            'Domains',
             'Validators',
             'ReceivedGrants',
             'NameBids',
@@ -20,6 +21,12 @@ class StateReader extends Basic {
             'StakeAgents',
             'StakeGrants',
             'StakeCandidates',
+            'Proposals',
+            'ProposalApprovals',
+            'Permissions',
+            'PermissionLinks',
+            'ResState',
+            'ResConfig',
         ];
 
         for (const name of getMethodsWhiteilst) {
@@ -41,6 +48,7 @@ class StateReader extends Basic {
     async getBalances(params) {}
     async getTopBalances(params) {}
     async getUsernames(params) {}
+    async Domains(params) {}
     async getValidators() {}
     async getReceivedGrants(params) {}
     async getNameBids(params) {}
@@ -51,6 +59,12 @@ class StateReader extends Basic {
     async getStakeAgents(params) {}
     async getStakeGrants(params) {}
     async getStakeCandidates(params) {}
+    async Proposals(params) {}
+    async ProposalApprovals(params) {}
+    async Permissions(params) {}
+    async PermissionLinks(params) {}
+    async ResState() {}
+    async ResConfig() {}
     /* eslint-enable no-unused-vars */
 }
 
