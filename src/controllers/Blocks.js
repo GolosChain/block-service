@@ -132,6 +132,7 @@ class Blocks {
                 index: true,
                 status: true,
                 stats: true,
+                actionsCount: true,
             },
             {
                 sort: { index: 1 },
