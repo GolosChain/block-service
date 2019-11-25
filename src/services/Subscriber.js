@@ -322,7 +322,7 @@ class Subscriber extends BasicService {
         } else {
             this._log({
                 message: `can't add username "${name}": no account "${owner}" in current trx`,
-                blockNum: storage._blockTime,
+                blockNum: storage._blockNum,
             });
         }
     }
