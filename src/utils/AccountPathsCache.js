@@ -10,7 +10,7 @@ class AccountPathsCache {
     }
 
     _accountFromTransferMemo({ to, memo, accounts }) {
-        const matcher = '([a-z0-5][a-z0-5.]{0,11})';
+        const matcher = '([1-5a-z][1-5a-z.]{0,11})';
         let re = false;
 
         switch (to) {
