@@ -2,6 +2,7 @@ const core = require('cyberway-core-service');
 const { chunk: chunkSplit } = require('lodash');
 const BasicService = core.services.Basic;
 const { Logger } = core.utils;
+const LogModel = require('../models/Log');
 const BlockSubscribe = core.services.BlockSubscribe;
 const metrics = core.utils.metrics;
 const BlockModel = require('../models/Block');
@@ -11,6 +12,7 @@ const AccountPathModel = require('../models/AccountPath');
 const AccountModel = require('../models/Account');
 const AccountBucketModel = require('../models/AccountBucket');
 const TokenBalanceModel = require('../models/TokenBalance');
+const ProposalModel = require('../models/Proposal');
 const Schedule = require('../controllers/Schedule');
 const CyberwayClient = require('../utils/Cyberway');
 const AccountPathsCache = require('../utils/AccountPathsCache');
@@ -50,7 +52,7 @@ class Subscriber extends BasicService {
                 await this._handleNewBlock(data);
                 break;
             case 'IRREVERSIBLE_BLOCK':
-                await this._setIrreversibleBlockNum(data);
+                await this._handleIrreversibleBlock(data);
                 break;
             case 'FORK':
                 Logger.warn(`Fork detected, new safe base on block num: ${data.baseBlockNum}`);
@@ -124,7 +126,7 @@ class Subscriber extends BasicService {
             );
         }
 
-        const { counters, storage } = this._calcBlockCounters(block, transactions, parentBlock);
+        const { counters, storage } = this._exrtractStorables(block, transactions, parentBlock);
         const newSchedule = block.schedule.toString() !== block.nextSchedule.toString();
         const nextSchedule = newSchedule ? block.nextSchedule : undefined;
 
@@ -234,12 +236,67 @@ class Subscriber extends BasicService {
         } catch (err) {
             Logger.error('ServiceMeta saving failed:', err);
         }
+    }
+
+    _extractTransactionStorables(transactions, handlers, storage, stats) {
+        for (const transaction of transactions || []) {
+            for (const action of transaction.actions) {
+                const contractHandlers = handlers[action.code];
+                if (!contractHandlers) {
+                    continue;
+                }
+
+                const handler = contractHandlers[action.action];
+                if (handler) {
+                    handler.bind(this)(action, storage, stats);
+                }
+
+                const eventsHandlers = contractHandlers.EVENTS;
+                if (eventsHandlers) {
+                    for (const event of action.events) {
+                        if (event.code !== action.code) {
+                            // not required for now
+                            continue;
+                        }
+
+                        const handler = eventsHandlers[event.event];
+                        if (handler) {
+                            handler.bind(this)(event, storage, stats);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    async _handleIrreversibleBlock(block) {
+        await this._setIrreversibleBlockNum(block);
 
         // здесь не нужно realtime-обновление, поэтому проще ловить пропуски уже на irrevervible
         await this._detectMissedBlocks(block);
-    }
 
-    _emptyActionHandler() {
+        const storage = {
+            proposals: {},
+
+            _blockNum: block.blockNum,
+            _blockTime: block.blockTime,
+        };
+        const handlers = {
+            'cyber.msig': {
+                propose: this._msigPropose,
+                approve: this._msigUpdate,
+                unapprove: this._msigUpdate,
+                cancel: this._msigFinish,
+                exec: this._msigFinish,
+                invalidate: () => {
+                    // invalidate is quite tricky to handle here.
+                    // TODO: ?store msig invalidations to lookup at proposal finish
+                    this._log({ message: 'msig invalidation', blockNum: block.blockNum });
+                },
+            },
+        };
+        this._extractTransactionStorables(block.transactions, handlers, storage);
+        await this._saveIrrStorage(storage, block);
     }
 
     _newAccountAction(action, storage, stats) {
@@ -263,7 +320,10 @@ class Subscriber extends BasicService {
             account.golosId = name;
             Logger.log(`Adding username "${name}" to ${owner}`);
         } else {
-            Logger.warn(`can't add username "${name}": no account "${owner}" in current trx`);
+            this._log({
+                message: `can't add username "${name}": no account "${owner}" in current trx`,
+                blockNum: storage._blockTime,
+            });
         }
     }
 
@@ -280,8 +340,70 @@ class Subscriber extends BasicService {
         };
     }
 
-    // TODO: rename
-    _calcBlockCounters(block, transactions, parentBlock) {
+    _levelStr({ actor, permission }) {
+        return `${actor}@${permission}`;
+    }
+
+    _msigPropose(action, storage) {
+        const { args } = action;
+        const { proposer, proposal_name: name, requested, trx } = args;
+        const proposal = {
+            proposer,
+            name,
+            trx,
+            blockNum: storage._blockNum,
+            approvals: requested.map(x => ({ level: this._levelStr(x) })),
+            expires: new Date(trx.expiration + 'Z'),
+        };
+        const key = `${proposer}-${name}`;
+
+        if (storage.proposals[key]) {
+            // TODO: fix rare case where proposal created, finalized and created again in 1 block (only last stored)
+            this._log({
+                message: `Proposal override: ${proposer}/${name}`,
+                blockNum: storage._blockNum,
+            });
+        }
+        storage.proposals[key] = proposal;
+    }
+
+    _msigUpdate(action, storage) {
+        const { args } = action;
+        const { proposer, proposal_name: name, level, proposal_hash } = args;
+        const key = `${proposer}-${name}`;
+        const p = storage.proposals[key] || { proposer, name, approvals: [] };
+        const lvl = this._levelStr(level);
+        const approval = {
+            level: lvl,
+            status: proposal_hash ? 'approve+' : action.action, // special mark when approved with hash
+            time: storage._blockTime,
+        };
+        const idx = p.approvals.findIndex(x => x.level === lvl);
+
+        if (idx >= 0) {
+            p.approvals[idx] = approval;
+        } else {
+            p.approvals.push(approval);
+        }
+        p.updateTime = storage._blockTime;
+        storage.proposals[key] = p;
+    }
+
+    _msigFinish(action, storage) {
+        const { args } = action;
+        const { proposer, proposal_name: name, executer } = args;
+        const key = `${proposer}-${name}`;
+        const p = storage.proposals[key] || { proposer, name };
+
+        p.finalStatus = action.action;
+        p.updateTime = storage._blockTime;
+        if (executer) {
+            p.execTrxId = '?'; // TODO
+        }
+        storage.proposals[key] = p;
+    }
+
+    _exrtractStorables(block, transactions, parentBlock) {
         const stats = {
             accounts: {
                 created: 0,
@@ -295,59 +417,35 @@ class Subscriber extends BasicService {
             },
         };
 
+        const tStats = stats.transactions;
+        for (const transaction of transactions || []) {
+            tStats[transaction.status] = (tStats[transaction.status] || 0) + 1;
+            stats.actions.count += transaction.actions.length;
+        }
+
         const storage = {
             newAccounts: [],
             balances: {}, // updates if several balance changes in one block
+
+            _blockNum: block.blockNum,
+            _blockTime: block.blockTime,
         };
 
-        const tStats = stats.transactions;
+        const handlers = {
+            cyber: {
+                newaccount: this._newAccountAction,
+            },
+            'cyber.domain': {
+                newusername: this._newUsernameAction,
+            },
+            'cyber.token': {
+                EVENTS: {
+                    balance: this._updateBalanceEvent,
+                },
+            },
+        };
 
-        if (transactions) {
-            for (const transaction of transactions) {
-                tStats[transaction.status] = (tStats[transaction.status] || 0) + 1;
-
-                stats.actions.count += transaction.actions.length;
-
-                const handlers = {
-                    cyber: {
-                        newaccount: this._newAccountAction,
-                    },
-                    'cyber.domain': {
-                        newusername: this._newUsernameAction,
-                    },
-                    'cyber.token': {
-                        EVENTS: {
-                            balance: this._updateBalanceEvent,
-                        },
-                    },
-                };
-
-                for (const action of transaction.actions) {
-                    const contractHandlers = handlers[action.code];
-                    if (contractHandlers) {
-                        const handler = contractHandlers[action.action];
-                        if (handler) {
-                            handler(action, storage, stats);
-                        }
-
-                        const eventsHandlers = contractHandlers.EVENTS;
-                        if (eventsHandlers) {
-                            for (const event of action.events) {
-                                if (event.code !== action.code) {
-                                    // not required for now
-                                    continue;
-                                }
-
-                                const handler = eventsHandlers[event.event];
-                                if (handler) {
-                                    handler(event, storage, stats);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        this._extractTransactionStorables(transactions, handlers, storage, stats);
 
         return {
             counters: {
@@ -576,13 +674,55 @@ class Subscriber extends BasicService {
         };
     }
 
+    async _saveIrrStorage(storage, block) {
+        const { proposals } = storage;
+        await this._saveProposals(Object.values(proposals), block.blockNum);
+    }
+
+    async _saveProposals(proposals, blockNum) {
+        if (!proposals.length) return;
+
+        const have = await Promise.all(
+            proposals.map(({ proposer, name }) => {
+                const query = { proposer, name, finalStatus: null };
+                return ProposalModel.findOne(query, {}, { lean: true });
+            })
+        );
+
+        await Promise.all(
+            proposals.map((proposal, i) => {
+                const { proposer, name, approvals } = proposal;
+                const found = have[i];
+                if (found) {
+                    if (approvals) {
+                        const current = found.approvals;
+                        for (const a of approvals) {
+                            const idx = current.findIndex(x => x.level === a.level);
+                            if (idx >= 0) {
+                                current[idx] = a;
+                            } else {
+                                current.push(a);
+                                this._log({
+                                    message: `missing ${a.level} approval in ${proposer}/${name}`,
+                                    blockNum,
+                                });
+                            }
+                        }
+                        proposal.approvals = current;
+                    }
+                }
+                const query = { proposer, name, finalStatus: null };
+                return ProposalModel.findOneAndUpdate(query, proposal, { upsert: true });
+            })
+        );
+    }
+
     async _saveStorage(storage, block) {
         const { newAccounts, balances } = storage;
-
-        if (newAccounts.length) {
-            await this._saveNewAccounts(newAccounts, block);
-        }
-        await this._saveBalanceUpdates(balances, block.blockNum);
+        await Promise.all([
+            this._saveNewAccounts(newAccounts, block),
+            this._saveBalanceUpdates(balances, block.blockNum),
+        ]);
     }
 
     async _saveNewAccounts(accounts, block) {
@@ -655,6 +795,14 @@ class Subscriber extends BasicService {
         }
 
         return stats;
+    }
+
+    async _log({ message, blockNum }) {
+        const data = { text: message, blockNum, module: 'Subscriber' };
+        const log = new LogModel(data);
+
+        Logger.warn(data);
+        await log.save();
     }
 }
 
