@@ -36,7 +36,7 @@ class DataActualizer extends BasicService {
     }
 
     async getDomain(name) {
-        // there is only 2 linked domains now so hardcode. TODO: fetch from state reader
+        // there is 3 linked domains now so hardcode. TODO: fetch from state reader #50
         return {
             golos: { owner: 'gls', linkedTo: 'gls', created: '2019-08-15T14:00:00.000Z' },
             cyber: { owner: 'rtvmqvz3i1vt', linkedTo: '', created: '2019-08-24T08:13:51.000Z' },
@@ -44,6 +44,11 @@ class DataActualizer extends BasicService {
                 owner: 'xhdtonx5zvnd',
                 linkedTo: 'xhdtonx5zvnd',
                 created: '2019-09-09T10:53:45.000Z',
+            },
+            commun: {
+                owner: 'zzzzzzzzzzzz',
+                linkedTo: 'c',
+                created: '2019-11-21T09:53:24.000Z',
             },
         }[name];
     }

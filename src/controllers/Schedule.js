@@ -137,8 +137,11 @@ class Schedule {
                 this.queue.shift();
                 this.storeSkippers({ skippers, blockNum, time: prevTime });
             } else {
-                // possible very rare case when next schedule is the same as previous one
-                return this.fatality('Rare: same schedule');
+                if (schedule.length > 1) {
+                    // possible very rare case when next schedule is the same as previous one
+                    this.fatality('Rare: same schedule');
+                } //todo: else next schedule without fatality
+                return;
             }
         } else {
             // here we have 2 cases: last producer in schedule or miss with schedule switch
