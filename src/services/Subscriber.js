@@ -248,7 +248,7 @@ class Subscriber extends BasicService {
 
                 const handler = contractHandlers[action.action];
                 if (handler) {
-                    handler.bind(this)(action, storage, stats);
+                    handler.call(this, action, storage, stats);
                 }
 
                 const eventsHandlers = contractHandlers.EVENTS;
@@ -261,7 +261,7 @@ class Subscriber extends BasicService {
 
                         const handler = eventsHandlers[event.event];
                         if (handler) {
-                            handler.bind(this)(event, storage, stats);
+                            handler.call(this, event, storage, stats);
                         }
                     }
                 }
@@ -390,7 +390,7 @@ class Subscriber extends BasicService {
     }
 
     _msigFinish(action, storage) {
-        const { args } = action;
+        const { args, events = [] } = action;
         const { proposer, proposal_name: name, executer } = args;
         const key = `${proposer}-${name}`;
         const p = storage.proposals[key] || { proposer, name };
@@ -398,7 +398,10 @@ class Subscriber extends BasicService {
         p.finalStatus = action.action;
         p.updateTime = storage._blockTime;
         if (executer) {
-            p.execTrxId = '?'; // TODO
+            const event = events.find(x => x.code === '' && x.event === 'senddeferred');
+            if (event) {
+                p.execTrxId = event.args.trx_id;
+            }
         }
         storage.proposals[key] = p;
     }
