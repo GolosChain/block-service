@@ -1,4 +1,6 @@
-const { utils: { Logger } } = require('cyberway-core-service');
+const {
+    utils: { Logger },
+} = require('cyberway-core-service');
 const AccountModel = require('../models/Account');
 const BalanceModel = require('../models/TokenBalance');
 const ProposalModel = require('../models/Proposal');
@@ -158,7 +160,7 @@ class Accounts {
         const { requested = [], provided = [] } = approvals;
         let updateTime;
 
-        const fixApproval = type => (({ time, level }) => {
+        const fixApproval = type => ({ time, level }) => {
             if (time === '1970-01-01T00:00:00.000Z') {
                 time = undefined;
             }
@@ -170,9 +172,9 @@ class Accounts {
             return {
                 level: `${level.actor}@${level.permission}`,
                 status,
-                time
+                time,
             };
-        });
+        };
 
         return {
             proposer,
@@ -188,7 +190,15 @@ class Accounts {
     }
 
     async getProposals({ proposer, name }) {
-        const [archive, { items: [active] }, { items: [approvals] }] = await Promise.all([
+        const [
+            archive,
+            {
+                items: [active],
+            },
+            {
+                items: [approvals],
+            },
+        ] = await Promise.all([
             ProposalModel.find({ proposer, name }, { _id: false }, { lean: true }),
             this._stateReader.getProposals({ filter: { proposer, proposal_name: name } }),
             this._stateReader.getProposalApprovals({ proposer, proposal: name }),
