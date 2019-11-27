@@ -1,5 +1,7 @@
+const { utils: { Logger } } = require('cyberway-core-service');
 const AccountModel = require('../models/Account');
 const BalanceModel = require('../models/TokenBalance');
+const ProposalModel = require('../models/Proposal');
 const Schedule = require('../controllers/Schedule');
 const { dateToBucketId, parseName } = require('../utils/common');
 
@@ -148,6 +150,75 @@ class Accounts {
             }
         }
         return tokens;
+    }
+
+    // convert proposal+approvals obtained from state-reader to format used in block-service
+    _convertProposal(proposer, name, proposal, approvals) {
+        const { rev, packedTransaction: packedTrx } = proposal;
+        const { requested = [], provided = [] } = approvals;
+        let updateTime;
+
+        const fixApproval = type => (({ time, level }) => {
+            if (time === '1970-01-01T00:00:00.000Z') {
+                time = undefined;
+            }
+            if (!updateTime || time > updateTime) {
+                updateTime = time;
+            }
+            const maybeApproved = type === 'approve' ? type : undefined;
+            const status = time ? type : maybeApproved;
+            return {
+                level: `${level.actor}@${level.permission}`,
+                status,
+                time
+            };
+        });
+
+        return {
+            proposer,
+            name,
+            blockNum: rev,
+            packedTrx,
+            approvals: [
+                ...provided.map(fixApproval('approve')),
+                ...requested.map(fixApproval('unapprove')),
+            ],
+            updateTime, // set in fixApproval()
+        };
+    }
+
+    async getProposals({ proposer, name }) {
+        const [archive, { items: [active] }, { items: [approvals] }] = await Promise.all([
+            ProposalModel.find({ proposer, name }, { _id: false }, { lean: true }),
+            this._stateReader.getProposals({ filter: { proposer, proposal_name: name } }),
+            this._stateReader.getProposalApprovals({ proposer, proposal: name }),
+        ]);
+
+        if (active || approvals) {
+            const id = `${proposer}/${name}`;
+            if (active && approvals) {
+                const { rev = 0, packedTransaction: packedTrx = '' } = active;
+                const same = archive.find(x => x.blockNum === rev);
+                if (same) {
+                    same.packedTrx = packedTrx;
+                } else {
+                    Logger.warn(`No active proposal ${id} found in archive`);
+                    const proposal = this._convertProposal(proposer, name, active, approvals);
+                    archive.push(proposal);
+                }
+            } else {
+                Logger.warn(`Only ${active ? 'proposal' : 'approvals'} found for ${id}`);
+            }
+        }
+
+        if (archive && archive.length) {
+            return { items: archive };
+        } else {
+            throw {
+                code: 404,
+                message: 'Proposal not found',
+            };
+        }
     }
 }
 
