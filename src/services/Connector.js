@@ -90,6 +90,17 @@ class Connector extends BasicConnector {
                     scope: this._blocks,
                     validation: {},
                 },
+                getProposals: {
+                    handler: this._accounts.getProposals,
+                    scope: this._accounts,
+                    validation: {
+                        required: ['proposer', 'name'],
+                        properties: {
+                            proposer: { type: 'string' },
+                            name: { type: 'string' },
+                        },
+                    },
+                },
                 getAccount: {
                     handler: this._accounts.getAccount,
                     scope: this._accounts,
