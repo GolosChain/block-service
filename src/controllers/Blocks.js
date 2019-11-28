@@ -73,11 +73,22 @@ class Blocks {
         };
     }
 
-    async getBlock({ blockId }) {
+    async getBlock({ blockId, blockNum }) {
+        const query = {};
+
+        if (blockId) {
+            query.id = blockId;
+        } else if (blockNum) {
+            query.blockNum = blockNum;
+        } else {
+            throw {
+                code: 500,
+                message: 'Invalid query',
+            };
+        }
+
         const block = await BlockModel.findOne(
-            {
-                id: blockId,
-            },
+            query,
             {
                 _id: 0,
                 id: 1,
