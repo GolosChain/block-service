@@ -1,6 +1,6 @@
 {
   "name": "block-service",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Block storage service",
   "main": "index.js",
   "scripts": {
