@@ -37,10 +37,12 @@ class Connector extends BasicConnector {
                     handler: this._blocks.getBlock,
                     scope: this._blocks,
                     validation: {
-                        required: ['blockId'],
                         properties: {
                             blockId: {
                                 type: 'string',
+                            },
+                            blockNum: {
+                                type: 'number',
                             },
                         },
                     },
