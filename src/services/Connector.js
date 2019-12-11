@@ -186,6 +186,10 @@ class Connector extends BasicConnector {
                     scope: this._chain,
                     validation: {},
                 },
+                getVersion: {
+                    handler: () => ({ version: process.env.npm_package_version }),
+                    validation: {},
+                },
             },
             serverDefaults: {
                 parents: {
