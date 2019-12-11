@@ -23,8 +23,8 @@ class Connector extends BasicConnector {
                         required: [],
                         properties: {
                             fromBlockNum: {
-                                type: 'number',
-                                minValue: 1,
+                                type: 'integer',
+                                minimum: 1,
                             },
                             nonEmpty: {
                                 type: 'boolean',
@@ -42,7 +42,7 @@ class Connector extends BasicConnector {
                                 type: 'string',
                             },
                             blockNum: {
-                                type: 'number',
+                                type: 'integer',
                             },
                         },
                     },
@@ -58,7 +58,7 @@ class Connector extends BasicConnector {
                                 type: 'string',
                             },
                             fromIndex: {
-                                type: 'number',
+                                type: 'integer',
                             },
                         },
                     },
@@ -94,6 +94,17 @@ class Connector extends BasicConnector {
                 },
                 getProposals: {
                     handler: this._accounts.getProposals,
+                    scope: this._accounts,
+                    validation: {
+                        required: ['proposer'],
+                        properties: {
+                            proposer: { type: 'string' },
+                            name: { type: 'string' },
+                        },
+                    },
+                },
+                getProposal: {
+                    handler: this._accounts.getProposal,
                     scope: this._accounts,
                     validation: {
                         required: ['proposer', 'name'],
@@ -132,10 +143,10 @@ class Connector extends BasicConnector {
                                 type: 'string',
                             },
                             limit: {
-                                type: 'number',
+                                type: 'integer',
                                 default: 10,
-                                minValue: 1,
-                                maxValue: 20,
+                                minimum: 1,
+                                maximum: 20,
                             },
                         },
                     },
@@ -167,10 +178,10 @@ class Connector extends BasicConnector {
                         validation: {
                             properties: {
                                 limit: {
-                                    type: 'number',
+                                    type: 'integer',
                                     default: 10,
-                                    minValue: 1,
-                                    maxValue: 50,
+                                    minimum: 1,
+                                    maximum: 50,
                                 },
                             },
                         },

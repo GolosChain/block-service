@@ -157,7 +157,7 @@ class Accounts {
     // convert proposal+approvals obtained from state-reader to format used in block-service
     _convertProposal(proposer, name, proposal, approvals) {
         const { rev, packedTransaction: packedTrx } = proposal;
-        const { requested = [], provided = [] } = approvals;
+        const { requested = [], provided = [] } = approvals || {};
         let updateTime;
 
         const fixApproval = type => ({ time, level }) => {
@@ -176,10 +176,14 @@ class Accounts {
             };
         };
 
-        return {
+        const base = {
             proposer,
             name,
             blockNum: rev,
+        };
+        if (approvals) {
+            return {
+                ...base,
             packedTrx,
             approvals: [
                 ...provided.map(fixApproval('approve')),
@@ -188,13 +192,35 @@ class Accounts {
             updateTime, // set in fixApproval()
         };
     }
+        return base;
+    }
 
-    async getProposals({ proposer, name }) {
+    _applyActiveProposals({ proposer, archive, active, approvals }) {
+        const full = Boolean(approvals);
+
+        for (const a of active || []) {
+            const { rev = 0, packedTransaction: packedTrx = '', proposalName: name } = a;
+            const same = archive.find(x => x.blockNum === rev);
+
+            if (same) {
+                if (full) {
+                    same.packedTrx = packedTrx;
+                } else {
+                    delete same.trx;
+                }
+            } else {
+                Logger.log(`No active proposal ${proposer}/${name} found in archive`);
+                const proposal = this._convertProposal(proposer, name, a, approvals);
+                archive.push(proposal);
+            }
+        }
+    }
+
+    // fetches all versions of a proposal
+    async getProposal({ proposer, name }) {
         const [
             archive,
-            {
-                items: [active],
-            },
+            { items: active },
             {
                 items: [approvals],
             },
@@ -204,21 +230,13 @@ class Accounts {
             this._stateReader.getProposalApprovals({ proposer, proposal: name }),
         ]);
 
-        if (active || approvals) {
-            const id = `${proposer}/${name}`;
-            if (active && approvals) {
-                const { rev = 0, packedTransaction: packedTrx = '' } = active;
-                const same = archive.find(x => x.blockNum === rev);
-                if (same) {
-                    same.packedTrx = packedTrx;
-                } else {
-                    Logger.warn(`No active proposal ${id} found in archive`);
-                    const proposal = this._convertProposal(proposer, name, active, approvals);
-                    archive.push(proposal);
-                }
-            } else {
-                Logger.warn(`Only ${active ? 'proposal' : 'approvals'} found for ${id}`);
-            }
+        const first = (active || [])[0];
+
+        if (first && approvals) {
+            this._applyActiveProposals({ proposer, archive, active, approvals });
+        } else if (first || approvals) {
+            const type = first ? 'proposal' : 'approvals';
+            Logger.warn(`Only ${type} found for ${proposer}/${name}`);
         }
 
         if (archive && archive.length) {
@@ -229,6 +247,17 @@ class Accounts {
                 message: 'Proposal not found',
             };
         }
+    }
+
+    // fetches all proposals (incl. versions) by given proposer. TODO: pagination
+    async getProposals({ proposer }) {
+        const [archive, { items: active }] = await Promise.all([
+            ProposalModel.find({ proposer }, { _id: false }, { lean: true }),
+            this._stateReader.getProposals({ filter: { proposer } }),
+        ]);
+
+        this._applyActiveProposals({ proposer, archive, active });
+        return { items: archive || [] };
     }
 }
 
