@@ -115,6 +115,20 @@ class Blocks {
         return block;
     }
 
+    async getBlockTime({ blockNums }) {
+        const items = await BlockModel.find(
+            { blockNum: { $in: blockNums } },
+            { _id: 0, blockNum: 1, blockTime: 1 },
+            { lean: true }
+        );
+        const blocks = {};
+
+        for (const i of items) {
+            blocks[i.blockNum] = i.blockTime;
+        }
+        return blocks;
+    }
+
     async getBlockTransactions({ blockId, fromIndex, limit, code, action, actor, event }) {
         const blockNum = parseInt(blockId.substr(0, 8), 16);
         const query = {

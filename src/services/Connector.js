@@ -47,6 +47,21 @@ class Connector extends BasicConnector {
                         },
                     },
                 },
+                getBlockTime: {
+                    handler: this._blocks.getBlockTime,
+                    scope: this._blocks,
+                    validation: {
+                        required: ['blockNums'],
+                        properties: {
+                            blockNums: {
+                                type: 'array',
+                                items: { type: 'integer', minimum: 1 },
+                                minItems: 1,
+                                uniqueItems: true,
+                            },
+                        },
+                    },
+                },
                 getBlockTransactions: {
                     handler: this._blocks.getBlockTransactions,
                     scope: this._blocks,
