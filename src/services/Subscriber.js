@@ -390,19 +390,23 @@ class Subscriber extends BasicService {
     }
 
     _msigFinish(action, storage) {
-        const { args, events = [] } = action;
-        const { proposer, proposal_name: name, executer } = args;
+        const { args, events = [], action: status } = action;
+        const { proposer, proposal_name: name, executer, canceler } = args;
         const key = `${proposer}-${name}`;
         const p = storage.proposals[key] || { proposer, name };
+        const finish = { status };
 
-        p.finalStatus = action.action;
         p.updateTime = storage._blockTime;
         if (executer) {
             const event = events.find(x => x.code === '' && x.event === 'senddeferred');
             if (event) {
-                p.execTrxId = event.args.trx_id;
+                finish.execTrxId = event.args.trx_id;
             }
+            finish.actor = executer;
+        } else {
+            finish.actor = canceler;
         }
+        p.finished = finish;
         storage.proposals[key] = p;
     }
 
@@ -687,7 +691,7 @@ class Subscriber extends BasicService {
 
         const have = await Promise.all(
             proposals.map(({ proposer, name }) => {
-                const query = { proposer, name, finalStatus: null };
+                const query = { proposer, name, finished: null };
                 return ProposalModel.findOne(query, {}, { lean: true });
             })
         );
@@ -714,7 +718,7 @@ class Subscriber extends BasicService {
                         proposal.approvals = current;
                     }
                 }
-                const query = { proposer, name, finalStatus: null };
+                const query = { proposer, name, finished: null };
                 return ProposalModel.findOneAndUpdate(query, proposal, { upsert: true });
             })
         );

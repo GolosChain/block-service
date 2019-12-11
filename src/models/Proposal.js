@@ -11,8 +11,6 @@ module.exports = MongoDB.makeModel(
         trx: { type: Object, required: true },
         expires: { type: Date },
         updateTime: { type: Date },
-        execTrxId: { type: String },
-        finalStatus: { type: String }, // "exec"/"cancel"/undefined for active proposals
         approvals: [
             {
                 _id: false,
@@ -21,6 +19,11 @@ module.exports = MongoDB.makeModel(
                 time: { type: Date },
             },
         ],
+        finished: {
+            actor: { type: String }, // account name of executer/canceler
+            status: { type: String }, // "exec"/"cancel"/undefined for active proposals
+            execTrxId: { type: String },
+        },
     },
     {
         index: [
