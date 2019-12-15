@@ -6,10 +6,12 @@ const BalanceModel = require('../models/TokenBalance');
 const ProposalModel = require('../models/Proposal');
 const Schedule = require('../controllers/Schedule');
 const { dateToBucketId, parseName } = require('../utils/common');
+const CyberwayClient = require('../utils/Cyberway');
 
 class Accounts {
-    constructor({ dataActualizer }) {
+    constructor({ dataActualizer, blockUtils }) {
         this._dataActualizer = dataActualizer;
+        this._blockUtils = blockUtils;
     }
 
     setStateReader(reader) {
@@ -180,11 +182,11 @@ class Accounts {
             proposer,
             name,
             blockNum: rev,
+            packedTrx,
         };
         if (approvals) {
             return {
                 ...base,
-            packedTrx,
             approvals: [
                 ...provided.map(fixApproval('approve')),
                 ...requested.map(fixApproval('unapprove')),
@@ -205,8 +207,6 @@ class Accounts {
             if (same) {
                 if (full) {
                     same.packedTrx = packedTrx;
-                } else {
-                    delete same.trx;
                 }
             } else {
                 Logger.log(`No active proposal ${proposer}/${name} found in archive`);
@@ -240,6 +240,7 @@ class Accounts {
         }
 
         if (archive && archive.length) {
+            await this._blockUtils.addBlockTime(archive);
             return { items: archive };
         } else {
             throw {
@@ -251,13 +252,31 @@ class Accounts {
 
     // fetches all proposals (incl. versions) by given proposer. TODO: pagination
     async getProposals({ proposer }) {
-        const [archive, { items: active }] = await Promise.all([
+        let [archive, { items: active }] = await Promise.all([
             ProposalModel.find({ proposer }, { _id: false }, { lean: true }),
             this._stateReader.getProposals({ filter: { proposer } }),
         ]);
 
+        if (!archive) {
+            archive = [];
+        }
+
         this._applyActiveProposals({ proposer, archive, active });
-        return { items: archive || [] };
+        await this._blockUtils.addBlockTime(archive);
+
+        const cw = CyberwayClient.get();
+        const items = archive.map(
+            ({ name, blockNum, blockTime, finished, updateTime, expires, packedTrx }) => {
+                if (!expires && packedTrx) {
+                    const trx = cw.deserializeTrx(packedTrx);
+                    if (trx) {
+                        expires = trx.expiration + 'Z';
+                    }
+                }
+                return { name, blockNum, blockTime, finished, updateTime, expires };
+            }
+        );
+        return { items };
     }
 }
 
