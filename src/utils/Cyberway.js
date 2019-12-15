@@ -30,6 +30,12 @@ class CyberwayClient {
     rawAbiToJson(rawAbi) {
         return this.api.rawAbiToJson(rawAbi);
     }
+
+    deserializeTrx(binTrx) {
+        const bytes =
+            typeof binTrx === 'string' ? Uint8Array.from(Buffer.from(binTrx, 'hex')) : binTrx;
+        return this.api.deserializeTransaction(bytes);
+    }
 }
 
 module.exports = CyberwayClient;

@@ -12,7 +12,7 @@ const accountsProjection = {
 };
 
 class Blocks {
-    constructor() {
+    constructor({ blockUtils }) {
         let host = null;
 
         const match = env.GLS_BLOCKCHAIN_BROADCASTER_CONNECT.match(/@([^@:]+):\d+$/);
@@ -28,6 +28,7 @@ class Blocks {
         }
 
         this._host = host;
+        this._blockUtils = blockUtils;
     }
 
     async getBlockList({ fromBlockNum, limit, code, action, actor, event, nonEmpty }) {
@@ -116,17 +117,7 @@ class Blocks {
     }
 
     async getBlockTime({ blockNums }) {
-        const items = await BlockModel.find(
-            { blockNum: { $in: blockNums } },
-            { _id: 0, blockNum: 1, blockTime: 1 },
-            { lean: true }
-        );
-        const blocks = {};
-
-        for (const i of items) {
-            blocks[i.blockNum] = i.blockTime;
-        }
-        return blocks;
+        return await this._blockUtils.getBlockTime({ blockNums, asObj: true });
     }
 
     async getBlockTransactions({ blockId, fromIndex, limit, code, action, actor, event }) {

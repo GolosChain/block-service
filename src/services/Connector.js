@@ -1,3 +1,4 @@
+const VERSION = require('../../package.json').version;
 const env = require('../data/env');
 const core = require('cyberway-core-service');
 const BasicConnector = core.services.Connector;
@@ -114,7 +115,6 @@ class Connector extends BasicConnector {
                         required: ['proposer'],
                         properties: {
                             proposer: { type: 'string' },
-                            name: { type: 'string' },
                         },
                     },
                 },
@@ -187,7 +187,7 @@ class Connector extends BasicConnector {
                     validation: {},
                 },
                 getVersion: {
-                    handler: () => ({ version: process.env.npm_package_version }),
+                    handler: () => ({ version: VERSION }),
                     validation: {},
                 },
             },

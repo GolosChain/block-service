@@ -2,6 +2,7 @@ const core = require('cyberway-core-service');
 const BasicMain = core.services.BasicMain;
 const env = require('./data/env');
 const Blocks = require('./controllers/Blocks');
+const BlockUtils = require('./controllers/BlockUtils');
 const Graphs = require('./controllers/Graphs');
 const Accounts = require('./controllers/Accounts');
 const Chain = require('./controllers/Chain');
@@ -18,10 +19,14 @@ class ApiMain extends BasicMain {
 
         this._actualizer = new DataActualizer();
 
-        this._blocks = new Blocks();
+        this._blockUtils = new BlockUtils();
+        this._blocks = new Blocks({
+            blockUtils: this._blockUtils,
+        });
         this._graphs = new Graphs();
         this._accounts = new Accounts({
             dataActualizer: this._actualizer,
+            blockUtils: this._blockUtils,
         });
         this._chain = new Chain({
             dataActualizer: this._actualizer,
