@@ -45,6 +45,10 @@ class Connector extends BasicConnector {
                             blockNum: {
                                 type: 'integer',
                             },
+                            blockTime: {
+                                type: 'string',
+                                format: 'date-time',
+                            },
                         },
                     },
                 },

@@ -74,13 +74,18 @@ class Blocks {
         };
     }
 
-    async getBlock({ blockId, blockNum }) {
+    // `blockTime` tries to return nearest earlier block if time not found
+    async getBlock({ blockId, blockNum, blockTime }) {
         const query = {};
+        const sort = {};
 
         if (blockId) {
             query.id = blockId;
         } else if (blockNum) {
             query.blockNum = blockNum;
+        } else if (blockTime) {
+            query.blockTime = { $lte: new Date(blockTime) };
+            sort.sort = { blockTime: -1 };
         } else {
             throw {
                 code: 500,
@@ -98,9 +103,11 @@ class Blocks {
                 blockTime: 1,
                 producer: 1,
                 'counters.current.transactions': 1,
+                'counters.total': 1,
             },
             {
                 lean: true,
+                ...sort,
             }
         );
 
@@ -111,6 +118,7 @@ class Blocks {
             };
         }
 
+        block.totals = block.counters.total;
         block.counters = block.counters.current;
 
         return block;
