@@ -92,6 +92,11 @@ module.exports = MongoDB.makeModel(
             },
             {
                 fields: {
+                    blockTime: -1,
+                },
+            },
+            {
+                fields: {
                     codes: 1,
                 },
             },
