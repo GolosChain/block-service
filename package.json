@@ -13,14 +13,14 @@
   "author": "golos.io",
   "license": "GPL-3.0",
   "dependencies": {
-    "cyberway-core-service": "^3.55.2",
-    "cyberwayjs": "^20.0.0-beta7",
+    "cyberway-core-service": "^3.56.1",
+    "cyberwayjs": "^20.0.2",
     "lodash": "^4.17.15"
   },
   "devDependencies": {
     "eslint": "^5.16.0",
     "eslint-config-prettier": "^4.3.0",
     "eslint-plugin-prettier": "^3.1.0",
-    "prettier": "^1.18.2"
+    "prettier": "^1.19.1"
   }
 }
