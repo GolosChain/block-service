@@ -24,6 +24,7 @@ module.exports = MongoDB.makeModel(
             status: { type: String }, // "exec"/"cancel"/undefined for active proposals
             execTrxId: { type: String },
         },
+        scheduled: { type: Date }, // only set if scheduled
     },
     {
         index: [

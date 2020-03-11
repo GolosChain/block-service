@@ -286,6 +286,7 @@ class Subscriber extends BasicService {
                 propose: this._msigPropose,
                 approve: this._msigUpdate,
                 unapprove: this._msigUpdate,
+                schedule: this._msigSchedule,
                 cancel: this._msigFinish,
                 exec: this._msigFinish,
                 invalidate: () => {
@@ -309,6 +310,14 @@ class Subscriber extends BasicService {
             creator,
         });
         stats.accounts.created++;
+    }
+
+    _setAbiCodeAction({ action, args }, storage) {
+        const { account } = args;
+        const field = action === 'setabi' ? 'abiVersion' : 'codeVersion';
+        const item = { account };
+        item[field] = 1;
+        storage.abiCodeUpdates.push(item);
     }
 
     _newUsernameAction(action, storage) {
@@ -389,6 +398,22 @@ class Subscriber extends BasicService {
         storage.proposals[key] = p;
     }
 
+    _msigSchedule(action, storage) {
+        const { args } = action;
+        const { proposer, proposal_name: name, actor } = args;
+        const key = `${proposer}-${name}`;
+        const p = storage.proposals[key] || { proposer, name, approvals: [] };
+        if (p.scheduled) {
+            this._log({
+                message: `Proposal scheduled twice: ${proposer}/${name}/${actor}`,
+                blockNum: storage._blockNum,
+            });
+        }
+        p.scheduled = storage._blockTime;
+        p.updateTime = storage._blockTime;
+        storage.proposals[key] = p;
+    }
+
     _msigFinish(action, storage) {
         const { args, events = [], action: status } = action;
         const { proposer, proposal_name: name, executer, canceler } = args;
@@ -399,6 +424,7 @@ class Subscriber extends BasicService {
         p.updateTime = storage._blockTime;
         if (executer) {
             const event = events.find(x => x.code === '' && x.event === 'senddeferred');
+            // TODO find nested trx id
             if (event) {
                 finish.execTrxId = event.args.trx_id;
             }
@@ -432,6 +458,7 @@ class Subscriber extends BasicService {
 
         const storage = {
             newAccounts: [],
+            abiCodeUpdates: [],
             balances: {}, // updates if several balance changes in one block
 
             _blockNum: block.blockNum,
@@ -441,6 +468,8 @@ class Subscriber extends BasicService {
         const handlers = {
             cyber: {
                 newaccount: this._newAccountAction,
+                setcode: this._setAbiCodeAction,
+                setabi: this._setAbiCodeAction,
             },
             'cyber.domain': {
                 newusername: this._newUsernameAction,
@@ -725,10 +754,11 @@ class Subscriber extends BasicService {
     }
 
     async _saveStorage(storage, block) {
-        const { newAccounts, balances } = storage;
+        const { newAccounts, abiCodeUpdates, balances } = storage;
         await Promise.all([
             this._saveNewAccounts(newAccounts, block),
             this._saveBalanceUpdates(balances, block.blockNum),
+            this._saveAbiCodeUpdates(abiCodeUpdates),
         ]);
     }
 
@@ -768,6 +798,27 @@ class Subscriber extends BasicService {
 
                 try {
                     await balanceModel.save();
+                } catch (err) {
+                    if (!(err.name === 'MongoError' && err.code === 11000)) {
+                        throw err;
+                    }
+                }
+            })
+        );
+    }
+
+    async _saveAbiCodeUpdates(updates) {
+        if (updates.length === 0) {
+            return;
+        }
+
+        await Promise.all(
+            updates.map(async ({ account, abiVersion = 0, codeVersion = 0 }) => {
+                try {
+                    await AccountModel.updateOne(
+                        { id: account },
+                        { $inc: { abiVersion, codeVersion } }
+                    );
                 } catch (err) {
                     if (!(err.name === 'MongoError' && err.code === 11000)) {
                         throw err;

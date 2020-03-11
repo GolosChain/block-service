@@ -23,6 +23,7 @@ class StateReader extends Basic {
             'StakeCandidates',
             'Proposals',
             'ProposalApprovals',
+            'ProposalWaits',
             'Permissions',
             'PermissionLinks',
             'ResState',
@@ -61,6 +62,7 @@ class StateReader extends Basic {
     async getStakeCandidates(params) {}
     async Proposals(params) {}
     async ProposalApprovals(params) {}
+    async ProposalWaits(params) {}
     async Permissions(params) {}
     async PermissionLinks(params) {}
     async ResState() {}

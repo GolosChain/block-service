@@ -36,6 +36,8 @@ module.exports = MongoDB.makeModel(
         creator: {
             type: String,
         },
+        codeVersion: { type: Number },
+        abiVersion: { type: Number },
     },
     {
         index: [
