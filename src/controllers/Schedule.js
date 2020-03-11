@@ -49,7 +49,7 @@ class Schedule {
         }
 
         if (blockNum <= this.blockNum) {
-            this.log(`Got already processed block: ${blockTime}`);
+            this.log(`Got already processed block: ${blockTime.toISOString()}`);
             return;
         }
         if (blockNum !== this.blockNum + 1) {

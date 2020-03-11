@@ -187,22 +187,22 @@ class Accounts {
         if (approvals) {
             return {
                 ...base,
-            approvals: [
-                ...provided.map(fixApproval('approve')),
-                ...requested.map(fixApproval('unapprove')),
-            ],
-            updateTime, // set in fixApproval()
-        };
-    }
+                approvals: [
+                    ...provided.map(fixApproval('approve')),
+                    ...requested.map(fixApproval('unapprove')),
+                ],
+                updateTime, // set in fixApproval()
+            };
+        }
         return base;
     }
 
-    _applyActiveProposals({ proposer, archive, active, approvals }) {
+    _applyActiveProposals({ proposer, archive, active, approvals, waits }) {
         const full = Boolean(approvals);
 
         for (const a of active || []) {
             const { rev = 0, packedTransaction: packedTrx = '', proposalName: name } = a;
-            const same = archive.find(x => x.blockNum === rev);
+            let same = archive.find(x => x.blockNum === rev);
 
             if (same) {
                 if (full) {
@@ -212,6 +212,14 @@ class Accounts {
                 Logger.log(`No active proposal ${proposer}/${name} found in archive`);
                 const proposal = this._convertProposal(proposer, name, a, approvals);
                 archive.push(proposal);
+                same = proposal;
+            }
+
+            if (waits && !same.scheduled) {
+                const wait = waits.find(x => x.proposalName === name);
+                if (wait) {
+                    same.scheduled = wait.started;
+                }
             }
         }
     }
@@ -224,16 +232,20 @@ class Accounts {
             {
                 items: [approvals],
             },
+            { items: waits },
+            { codeVersion },
         ] = await Promise.all([
             ProposalModel.find({ proposer, name }, { _id: false }, { lean: true }),
             this._stateReader.getProposals({ filter: { proposer, proposal_name: name } }),
             this._stateReader.getProposalApprovals({ proposer, proposal: name }),
+            this._stateReader.getProposalWaits({ proposer, proposal: name }),
+            AccountModel.findOne({ id: 'cyber.msig' }, { _id: false, codeVersion: true }),
         ]);
 
         const first = (active || [])[0];
 
         if (first && approvals) {
-            this._applyActiveProposals({ proposer, archive, active, approvals });
+            this._applyActiveProposals({ proposer, archive, active, approvals, waits });
         } else if (first || approvals) {
             const type = first ? 'proposal' : 'approvals';
             Logger.warn(`Only ${type} found for ${proposer}/${name}`);
@@ -241,7 +253,7 @@ class Accounts {
 
         if (archive && archive.length) {
             await this._blockUtils.addBlockTime(archive);
-            return { items: archive };
+            return { items: archive, msigVersion: codeVersion };
         } else {
             throw {
                 code: 404,
